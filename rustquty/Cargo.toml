@@ -2,13 +2,18 @@
 name = "rustquty"
 version = "0.1.0"
 edition = "2024"
+description = "Local-first quality scanner for Rust projects"
+license = "MIT"
+repository = "https://github.com/rustquty/rustquty"
+keywords = ["quality", "clippy", "fmt", "coverage", "testing"]
+categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
 name = "rustquty"
 path = "src/main.rs"
 
 [dependencies]
-rustquty-core = { path = "../rustquty-core" }
+rustquty-core = { version = "0.1.0", path = "../rustquty-core" }
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 serde_json = "1"

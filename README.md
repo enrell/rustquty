@@ -20,7 +20,7 @@ cargo install rustquty
 
 ### Pre-built binaries
 
-Download from [GitHub Releases](https://github.com/rustquty/rustquty/releases).
+Download from [GitHub Releases](https://github.com/enrell/rustquty/releases).
 
 ## Quick Start
 
