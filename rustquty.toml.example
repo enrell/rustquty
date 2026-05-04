@@ -1,0 +1,29 @@
+# rustquty.toml - Example configuration
+# Copy to your Rust project root and customize
+
+[profile]
+# Default quality scan profile: fast | full | deep
+# fast = fmt + clippy only
+# full = all collectors except mutants (default)
+# deep = all collectors including mutation testing
+default = "full"
+
+[collectors]
+# Disable specific collectors globally
+# mutants = false
+# hack = false
+
+[gate]
+# Override baseline thresholds at check time
+[gate.coverage]
+min_line_percent = 80.0
+
+[gate.clippy]
+max_warnings = 0
+
+[gate.tests]
+max_failures = 0
+
+[output]
+# Override default quality/ output directory
+# dir = "quality"

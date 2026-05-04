@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "1",
+  "generatedAt": "1777934910",
+  "rustqutyVersion": "0.1.0",
+  "project": {
+    "name": "rustquty",
+    "rustEdition": "2021",
+    "workspaceRoot": "/home/kokoro/btw/lab/rustquty"
+  },
+  "collectors": {
+    "fmt": {
+      "status": "pass",
+      "details": {}
+    },
+    "clippy": {
+      "status": "pass",
+      "warningCount": 0,
+      "details": []
+    },
+    "tests": {
+      "status": "pass",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "runner": null
+    },
+    "coverage": {
+      "status": "error",
+      "linePercent": 0.0
+    },
+    "deny": {
+      "status": "error",
+      "bannedCount": 0,
+      "licenseViolations": 0
+    },
+    "audit": {
+      "status": "error",
+      "vulnerabilityCount": 0,
+      "criticalCount": 0
+    },
+    "hack": {
+      "status": "error",
+      "featureCombinationsTested": 0
+    },
+    "mutants": {
+      "status": "skipped",
+      "mutationScore": 0.0,
+      "caught": 0,
+      "missed": 0
+    }
+  }
+}

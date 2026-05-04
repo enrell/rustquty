@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1",
+  "createdAt": "1777934879",
+  "rustqutyVersion": "0.1.0",
+  "thresholds": {
+    "fmt": {
+      "mustPass": true
+    },
+    "clippy": {
+      "maxWarnings": 0
+    },
+    "tests": {
+      "maxFailures": 0
+    },
+    "coverage": {
+      "minLinePercent": 0.0
+    },
+    "deny": {
+      "maxBanned": 0,
+      "maxLicenseViolations": 0
+    },
+    "audit": {
+      "maxVulnerabilities": 0,
+      "maxCritical": 0
+    },
+    "hack": {
+      "mustPass": false
+    },
+    "mutants": {
+      "minScore": 0.0
+    }
+  }
+}

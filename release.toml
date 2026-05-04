@@ -1,0 +1,53 @@
+[workspace]
+resolver = "2"
+members = ["rustquty", "rustquty-core"]
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+lto = true
+codegen-units = 1
+
+[tool.release]
+# Configure cargo-release for version bumping
+# See: https://github.com/crate-ci/cargo-release
+
+# Version increment policy: patch for bugfixes, minor for features, major for breaking changes
+tag = true
+tag-name = "v{{version}}"
+tag-message = "Release {{version}}"
+push-release = true
+
+# Require signed commits for release branches
+sign-commit = false
+sign-tag = false
+
+# Changelog configuration
+changelog = "CHANGELOG.md"
+changelog-version = "{{version}}"
+changelog-format = "keep-a-changelog"
+
+# Files affected by release
+# These files should NOT be modified manually; cargo-release handles them
+protected-files = [
+    "Cargo.toml",
+    "rustquty/Cargo.toml",
+    "rustquty-core/Cargo.toml",
+    "CHANGELOG.md",
+]
+
+# Pre-release steps (run before version bump)
+[tool.release.before-commit-push]
+workspace-hack = "cargo hack check --feature-powerset --no-dev-deps"
+fmt-check = "cargo fmt --check"
+clippy-check = "cargo clippy -- -D warnings"
+test = "cargo test"
+
+# Release hooks
+[tool.release.hooks.post-release]
+audit = "cargo audit"
+publish = "echo 'Run: cargo publish -p rustquty-core && cargo publish -p rustquty'"
+
+[tool.release.hooks.prepare]
+readme = "cargo readme > README.md"

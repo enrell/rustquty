@@ -1,0 +1,4 @@
+cognitive-complexity-threshold = 30
+disallowed-names = ["foo", "bar", "baz", "quux"]
+too-many-arguments-threshold = 8
+type-complexity-threshold = 500

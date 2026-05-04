@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = ["rustquty", "rustquty-core"]
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+lto = true
+codegen-units = 1

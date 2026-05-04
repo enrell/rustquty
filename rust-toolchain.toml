@@ -1,0 +1,7 @@
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
+profile = "default"
+
+[patch.crates-io]
+# Temporarily pin if needed for specific Rust 2024 features
