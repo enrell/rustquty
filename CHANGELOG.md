@@ -113,6 +113,6 @@ max-nesting-depth = 5             # Optional
 | hack | `cargo-hack` | `cargo install cargo-hack` |
 | mutants | `cargo-mutants` | `cargo install cargo-mutants` |
 
-[0.1.0]: https://github.com/rustquty/rustquty/releases/tag/v0.1.0
-[0.2.0]: https://github.com/rustquty/rustquty/releases/tag/v0.2.0
-[0.3.0]: https://github.com/rustquty/rustquty/releases/tag/v0.3.0
+[0.1.0]: https://github.com/enrell/rustquty/releases/tag/v0.1.0
+[0.2.0]: https://github.com/enrell/rustquty/releases/tag/v0.2.0
+[0.3.0]: https://github.com/enrell/rustquty/releases/tag/v0.3.0
