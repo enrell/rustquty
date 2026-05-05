@@ -39,6 +39,7 @@ pub struct CollectorsSummary {
     pub duplicates: DuplicatesResult,
     pub loc: LocResult,
     pub size: SizeResult,
+    pub complexity: ComplexityResult,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -180,6 +181,36 @@ pub struct SizeViolation {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ComplexityResult {
+    pub status: CollectorStatus,
+    pub functions: u32,
+    #[serde(default)]
+    pub max_cyclomatic_complexity: u32,
+    #[serde(default)]
+    pub max_nesting_depth: u32,
+    #[serde(default)]
+    pub complex_functions: u32,
+    #[serde(default)]
+    pub violations: Vec<ComplexityViolation>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ComplexityViolation {
+    #[serde(rename = "ruleId")]
+    pub rule_id: String,
+    pub file: String,
+    pub line: u32,
+    #[serde(default)]
+    pub function: Option<String>,
+    pub message: String,
+    pub actual: u32,
+    pub threshold: u32,
+    pub severity: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum CollectorStatus {
     Pass,
@@ -215,6 +246,7 @@ pub struct Thresholds {
     pub duplicates: DuplicatesThreshold,
     pub loc: LocThreshold,
     pub size: SizeThreshold,
+    pub complexity: ComplexityThreshold,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -290,6 +322,15 @@ pub struct SizeThreshold {
     pub max_lines_per_function: Option<u32>,
     #[serde(default)]
     pub max_parameters_per_function: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ComplexityThreshold {
+    #[serde(default)]
+    pub max_cyclomatic_per_function: Option<u32>,
+    #[serde(default)]
+    pub max_nesting_depth: Option<u32>,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -407,7 +448,8 @@ mod tests {
             "mutants": { "status": "skipped", "mutationScore": 0.0, "caught": 0, "missed": 0 },
             "duplicates": { "status": "skipped", "totalLines": 0, "duplicateLines": 0, "filesWithDuplicates": 0, "duplicateFiles": [] },
             "loc": { "status": "skipped", "totalLines": 0, "codeLines": 0, "commentLines": 0, "blankLines": 0, "longLines": 0, "maxLineLengthFound": 0, "maxLineLengthAllowed": 120, "files": 0, "filesWithLongLines": 0, "longLineFiles": [] },
-            "size": { "status": "skipped", "files": 0, "maxLinesPerFile": 0, "maxCodeLinesPerFile": 0, "maxLinesPerFunction": 0, "maxParametersPerFunction": 0, "violations": [] }
+            "size": { "status": "skipped", "files": 0, "maxLinesPerFile": 0, "maxCodeLinesPerFile": 0, "maxLinesPerFunction": 0, "maxParametersPerFunction": 0, "violations": [] },
+            "complexity": { "status": "skipped", "functions": 0, "maxCyclomaticComplexity": 0, "maxNestingDepth": 0, "complexFunctions": 0, "violations": [] }
           }
         }"#;
         let summary: MetricsSummary = serde_json::from_str(json).unwrap();
@@ -433,7 +475,8 @@ mod tests {
             "mutants": { "minScore": 0.8 },
             "duplicates": { "maxDuplicateLines": 100 },
             "loc": { "maxLineLength": 120 },
-            "size": { "maxLinesPerFile": 1000, "maxCodeLinesPerFile": 700, "maxLinesPerFunction": 80, "maxParametersPerFunction": 6 }
+            "size": { "maxLinesPerFile": 1000, "maxCodeLinesPerFile": 700, "maxLinesPerFunction": 80, "maxParametersPerFunction": 6 },
+            "complexity": { "maxCyclomaticPerFunction": 10, "maxNestingDepth": 5 }
           }
         }"#;
         let baseline: Baseline = serde_json::from_str(json).unwrap();
@@ -492,7 +535,8 @@ mod tests {
             "mutants": { "status": "pass", "mutationScore": 0.0, "caught": 0, "missed": 0 },
             "duplicates": { "status": "pass", "totalLines": 1000, "duplicateLines": 0, "filesWithDuplicates": 0, "duplicateFiles": [] },
             "loc": { "status": "pass", "totalLines": 1000, "codeLines": 800, "commentLines": 100, "blankLines": 100, "longLines": 0, "maxLineLengthFound": 100, "maxLineLengthAllowed": 120, "files": 10, "filesWithLongLines": 0, "longLineFiles": [] },
-            "size": { "status": "pass", "files": 10, "maxLinesPerFile": 500, "maxCodeLinesPerFile": 400, "maxLinesPerFunction": 80, "maxParametersPerFunction": 5, "violations": [] }
+            "size": { "status": "pass", "files": 10, "maxLinesPerFile": 500, "maxCodeLinesPerFile": 400, "maxLinesPerFunction": 80, "maxParametersPerFunction": 5, "violations": [] },
+            "complexity": { "status": "skipped", "functions": 0, "maxCyclomaticComplexity": 0, "maxNestingDepth": 0, "complexFunctions": 0, "violations": [] }
           }
         }"#;
         let summary: MetricsSummary = serde_json::from_str(json).unwrap();

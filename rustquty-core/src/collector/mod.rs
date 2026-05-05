@@ -2,6 +2,7 @@
 
 pub mod audit;
 pub mod clippy;
+pub mod complexity;
 pub mod coverage;
 pub mod deny;
 pub mod duplicates;
@@ -14,9 +15,9 @@ pub mod tests;
 
 use crate::context::Context;
 use crate::schema::{
-    AuditResult, ClippyResult, CollectorStatus, CoverageResult, DenyResult, DuplicatesResult,
-    FmtResult, HackResult, LocResult, MetricsSummary, MutantsResult, ProjectInfo, SizeResult,
-    TestResult,
+    AuditResult, ClippyResult, CollectorStatus, ComplexityResult, CoverageResult, DenyResult,
+    DuplicatesResult, FmtResult, HackResult, LocResult, MetricsSummary, MutantsResult, ProjectInfo,
+    SizeResult, TestResult,
 };
 use std::time::Instant;
 
@@ -240,6 +241,14 @@ pub fn run_collectors(
             duplicates: duplicates_result,
             loc: loc_result,
             size: size_result,
+            complexity: ComplexityResult {
+                status: CollectorStatus::Skipped,
+                functions: 0,
+                max_cyclomatic_complexity: 0,
+                max_nesting_depth: 0,
+                complex_functions: 0,
+                violations: vec![],
+            },
         },
     }
 }

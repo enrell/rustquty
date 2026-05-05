@@ -57,6 +57,8 @@ pub struct ConfigGate {
     pub coverage: Option<ConfigGateCoverage>,
     #[serde(default)]
     pub size: Option<SizeConfig>,
+    #[serde(default)]
+    pub complexity: Option<ComplexityConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -81,6 +83,18 @@ pub struct SizeConfig {
     /// Maximum parameters per function.
     #[serde(default)]
     pub max_parameters_per_function: Option<u32>,
+}
+
+/// Configuration for the complexity gate, loaded from [gate.complexity] in TOML.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "kebab-case")]
+pub struct ComplexityConfig {
+    /// Maximum cyclomatic complexity per function.
+    #[serde(default)]
+    pub max_cyclomatic_per_function: Option<u32>,
+    /// Maximum nesting depth per function.
+    #[serde(default)]
+    pub max_nesting_depth: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]

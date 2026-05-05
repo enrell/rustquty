@@ -365,6 +365,7 @@ version = "0.3.0"
 dependencies = [
  "anyhow",
  "proc-macro2",
+ "quote",
  "rayon",
  "serde",
  "serde_json",

@@ -1,9 +1,9 @@
 //! Baseline file management.
 
 use crate::schema::{
-    AuditThreshold, Baseline, ClippyThreshold, CoverageThreshold, DenyThreshold,
-    DuplicatesThreshold, FmtThreshold, HackThreshold, LocThreshold, MutantsThreshold,
-    SizeThreshold, TestThreshold, Thresholds,
+    AuditThreshold, Baseline, ClippyThreshold, ComplexityThreshold, CoverageThreshold,
+    DenyThreshold, DuplicatesThreshold, FmtThreshold, HackThreshold, LocThreshold,
+    MutantsThreshold, SizeThreshold, TestThreshold, Thresholds,
 };
 use std::path::Path;
 
@@ -62,6 +62,14 @@ impl BaselineWriter {
                     .size
                     .max_parameters_per_function
                     .into(),
+            },
+            complexity: ComplexityThreshold {
+                max_cyclomatic_per_function: summary
+                    .collectors
+                    .complexity
+                    .max_cyclomatic_complexity
+                    .into(),
+                max_nesting_depth: summary.collectors.complexity.max_nesting_depth.into(),
             },
         };
 
@@ -131,6 +139,14 @@ impl BaselineWriter {
                     .size
                     .max_parameters_per_function
                     .into(),
+            },
+            complexity: ComplexityThreshold {
+                max_cyclomatic_per_function: summary
+                    .collectors
+                    .complexity
+                    .max_cyclomatic_complexity
+                    .into(),
+                max_nesting_depth: summary.collectors.complexity.max_nesting_depth.into(),
             },
         };
 
@@ -288,6 +304,14 @@ mod tests {
                     max_code_lines_per_file: 400,
                     max_lines_per_function: 80,
                     max_parameters_per_function: 5,
+                    violations: vec![],
+                },
+                complexity: crate::schema::ComplexityResult {
+                    status: CollectorStatus::Pass,
+                    functions: 10,
+                    max_cyclomatic_complexity: 5,
+                    max_nesting_depth: 3,
+                    complex_functions: 0,
                     violations: vec![],
                 },
             },

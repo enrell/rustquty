@@ -6,7 +6,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use rustquty_core::{
     BaselineWriter, Gate,
-    config::{Config, SizeConfig},
+    config::{ComplexityConfig, Config, SizeConfig},
     context::{CollectorName, Context, Profile},
     schema::{CollectorStatus, GateResult, MetricsSummary, QualityReport},
 };
@@ -155,6 +155,7 @@ fn main() -> Result<()> {
 
     // Extract size config from TOML if present.
     let size_config = config.as_ref().and_then(|c| c.gate.size.clone());
+    let complexity_config = config.as_ref().and_then(|c| c.gate.complexity.clone());
 
     // Build context with CLI overrides
     let mut ctx = Context::new(project_dir.clone())
@@ -186,7 +187,7 @@ fn main() -> Result<()> {
         }
 
         Commands::Collect => {
-            let summary = run_collectors(&ctx, size_config.clone())?;
+            let summary = run_collectors(&ctx, size_config.clone(), complexity_config.clone())?;
             let json = serde_json::to_string_pretty(&summary)?;
             let path = output_dir.join("metricsSummary.json");
             std::fs::write(&path, &json)?;
@@ -223,7 +224,7 @@ fn main() -> Result<()> {
         }
 
         Commands::Qa => {
-            let summary = run_collectors(&ctx, size_config.clone())?;
+            let summary = run_collectors(&ctx, size_config.clone(), complexity_config.clone())?;
             let json = serde_json::to_string_pretty(&summary)?;
             let path = output_dir.join("metricsSummary.json");
             std::fs::write(&path, &json)?;
@@ -287,12 +288,21 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn run_collectors(ctx: &Context, size_config: Option<SizeConfig>) -> Result<MetricsSummary> {
+fn run_collectors(
+    ctx: &Context,
+    size_config: Option<SizeConfig>,
+    complexity_config: Option<ComplexityConfig>,
+) -> Result<MetricsSummary> {
     use rustquty_core::collector::Collector;
 
-    let all: Vec<Box<dyn Collector>> = match &size_config {
-        Some(cfg) => collectors::all_collectors_with_size_config(Some(cfg.clone())),
-        None => collectors::all_collectors(),
+    let all: Vec<Box<dyn Collector>> = match (&size_config, &complexity_config) {
+        (Some(cfg), Some(cplx)) => collectors::all_collectors_with_size_and_complexity_config(
+            Some(cfg.clone()),
+            Some(cplx.clone()),
+        ),
+        (Some(cfg), None) => collectors::all_collectors_with_size_config(Some(cfg.clone())),
+        (None, Some(cplx)) => collectors::all_collectors_with_complexity_config(Some(cplx.clone())),
+        (None, None) => collectors::all_collectors(),
     };
 
     // Apply profile filtering
@@ -420,6 +430,14 @@ fn run_collectors(ctx: &Context, size_config: Option<SizeConfig>) -> Result<Metr
         max_parameters_per_function: 0,
         violations: vec![],
     };
+    let mut complexity_result = rustquty_core::schema::ComplexityResult {
+        status: CollectorStatus::Skipped,
+        functions: 0,
+        max_cyclomatic_complexity: 0,
+        max_nesting_depth: 0,
+        complex_functions: 0,
+        violations: vec![],
+    };
 
     for (name, output) in &results {
         match *name {
@@ -447,6 +465,18 @@ fn run_collectors(ctx: &Context, size_config: Option<SizeConfig>) -> Result<Metr
                 }
                 size_result.status.clone_from(&output.status);
             }
+            "complexity" => {
+                if let Ok(details) = serde_json::from_str::<serde_json::Value>(&output.stdout) {
+                    complexity_result.functions = details["functions"].as_u64().unwrap_or(0) as u32;
+                    complexity_result.max_cyclomatic_complexity =
+                        details["maxCyclomaticComplexity"].as_u64().unwrap_or(0) as u32;
+                    complexity_result.max_nesting_depth =
+                        details["maxNestingDepth"].as_u64().unwrap_or(0) as u32;
+                    complexity_result.complex_functions =
+                        details["complexFunctions"].as_u64().unwrap_or(0) as u32;
+                }
+                complexity_result.status.clone_from(&output.status);
+            }
             _ => {}
         }
     }
@@ -472,6 +502,7 @@ fn run_collectors(ctx: &Context, size_config: Option<SizeConfig>) -> Result<Metr
             duplicates: duplicates_result,
             loc: loc_result,
             size: size_result,
+            complexity: complexity_result,
         },
     })
 }

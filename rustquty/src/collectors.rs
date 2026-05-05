@@ -1,11 +1,12 @@
 //! Registry of all collectors.
 
 use rustquty_core::collector::{
-    Collector, audit::AuditCollector, clippy::ClippyCollector, coverage::CoverageCollector,
-    deny::DenyCollector, duplicates::DuplicatesCollector, fmt::FmtCollector, hack::HackCollector,
-    loc::LocCollector, mutants::MutantsCollector, size::SizeCollector, tests::TestCollector,
+    Collector, audit::AuditCollector, clippy::ClippyCollector, complexity::ComplexityCollector,
+    coverage::CoverageCollector, deny::DenyCollector, duplicates::DuplicatesCollector,
+    fmt::FmtCollector, hack::HackCollector, loc::LocCollector, mutants::MutantsCollector,
+    size::SizeCollector, tests::TestCollector,
 };
-use rustquty_core::config::SizeConfig;
+use rustquty_core::config::{ComplexityConfig, SizeConfig};
 
 pub fn all_collectors() -> Vec<Box<dyn Collector>> {
     vec![
@@ -20,10 +21,10 @@ pub fn all_collectors() -> Vec<Box<dyn Collector>> {
         Box::new(DuplicatesCollector::new()),
         Box::new(LocCollector::new()),
         Box::new(SizeCollector::new()),
+        Box::new(ComplexityCollector::new()),
     ]
 }
 
-/// Create all collectors with optional size configuration from TOML.
 pub fn all_collectors_with_size_config(size_config: Option<SizeConfig>) -> Vec<Box<dyn Collector>> {
     vec![
         Box::new(FmtCollector::new()),
@@ -39,6 +40,55 @@ pub fn all_collectors_with_size_config(size_config: Option<SizeConfig>) -> Vec<B
         Box::new(match size_config {
             Some(cfg) => SizeCollector::with_config(cfg),
             None => SizeCollector::new(),
+        }),
+        Box::new(ComplexityCollector::new()),
+    ]
+}
+
+pub fn all_collectors_with_complexity_config(
+    complexity_config: Option<ComplexityConfig>,
+) -> Vec<Box<dyn Collector>> {
+    vec![
+        Box::new(FmtCollector::new()),
+        Box::new(ClippyCollector::new()),
+        Box::new(TestCollector::new()),
+        Box::new(CoverageCollector::new()),
+        Box::new(DenyCollector::new()),
+        Box::new(AuditCollector::new()),
+        Box::new(HackCollector::new()),
+        Box::new(MutantsCollector::new()),
+        Box::new(DuplicatesCollector::new()),
+        Box::new(LocCollector::new()),
+        Box::new(SizeCollector::new()),
+        Box::new(match complexity_config {
+            Some(cfg) => ComplexityCollector::with_config(cfg),
+            None => ComplexityCollector::new(),
+        }),
+    ]
+}
+
+pub fn all_collectors_with_size_and_complexity_config(
+    size_config: Option<SizeConfig>,
+    complexity_config: Option<ComplexityConfig>,
+) -> Vec<Box<dyn Collector>> {
+    vec![
+        Box::new(FmtCollector::new()),
+        Box::new(ClippyCollector::new()),
+        Box::new(TestCollector::new()),
+        Box::new(CoverageCollector::new()),
+        Box::new(DenyCollector::new()),
+        Box::new(AuditCollector::new()),
+        Box::new(HackCollector::new()),
+        Box::new(MutantsCollector::new()),
+        Box::new(DuplicatesCollector::new()),
+        Box::new(LocCollector::new()),
+        Box::new(match size_config {
+            Some(cfg) => SizeCollector::with_config(cfg),
+            None => SizeCollector::new(),
+        }),
+        Box::new(match complexity_config {
+            Some(cfg) => ComplexityCollector::with_config(cfg),
+            None => ComplexityCollector::new(),
         }),
     ]
 }

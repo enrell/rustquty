@@ -225,7 +225,6 @@ impl Gate {
 
         if size_has_thresholds && !summary.collectors.size.violations.is_empty() {
             collectors_failed += 1;
-            // Report the number of violations as the metric.
             violations.push(Violation {
                 collector: "size".to_string(),
                 metric: "violations".to_string(),
@@ -234,6 +233,27 @@ impl Gate {
                 message: format!(
                     "{} size violation(s) detected",
                     summary.collectors.size.violations.len()
+                ),
+            });
+        } else {
+            collectors_passed += 1;
+        }
+
+        // Complexity
+        // Gate passes if complexity is not configured or if no violations.
+        let complexity_has_thresholds = t.complexity.max_cyclomatic_per_function.is_some()
+            || t.complexity.max_nesting_depth.is_some();
+
+        if complexity_has_thresholds && !summary.collectors.complexity.violations.is_empty() {
+            collectors_failed += 1;
+            violations.push(Violation {
+                collector: "complexity".to_string(),
+                metric: "violations".to_string(),
+                baseline_value: serde_json::json!(0),
+                current_value: serde_json::json!(summary.collectors.complexity.violations.len()),
+                message: format!(
+                    "{} complexity violation(s) detected",
+                    summary.collectors.complexity.violations.len()
                 ),
             });
         } else {
@@ -382,6 +402,14 @@ mod tests {
                     max_parameters_per_function: 5,
                     violations: vec![],
                 },
+                complexity: ComplexityResult {
+                    status: CollectorStatus::Pass,
+                    functions: 10,
+                    max_cyclomatic_complexity: 5,
+                    max_nesting_depth: 3,
+                    complex_functions: 0,
+                    violations: vec![],
+                },
             },
         }
     }
@@ -442,6 +470,10 @@ mod tests {
                     max_lines_per_function: size_max_lines_per_function,
                     max_parameters_per_function: size_max_parameters_per_function,
                 },
+                complexity: ComplexityThreshold {
+                    max_cyclomatic_per_function: None,
+                    max_nesting_depth: None,
+                },
             },
         }
     }
@@ -466,7 +498,7 @@ mod tests {
         let report = Gate::run(&summary, &baseline);
         assert!(matches!(report.gate_result, GateResult::Pass));
         assert!(report.violations.is_empty());
-        assert_eq!(report.summary.collectors_passed, 11);
+        assert_eq!(report.summary.collectors_passed, 12);
         assert_eq!(report.summary.collectors_failed, 0);
     }
 
