@@ -10,7 +10,9 @@ pub struct LocCollector {
 
 impl LocCollector {
     pub fn new() -> Self {
-        Self { max_line_length: 120 }
+        Self {
+            max_line_length: 120,
+        }
     }
 }
 
@@ -48,7 +50,8 @@ impl Collector for LocCollector {
                         total_lines += lines.len() as u32;
 
                         // Track module/file lines
-                        let file_name = path.file_name()
+                        let file_name = path
+                            .file_name()
                             .map(|s| s.to_string_lossy().to_string())
                             .unwrap_or_else(|| "unknown".to_string());
 
@@ -68,7 +71,10 @@ impl Collector for LocCollector {
 
                             if trimmed.is_empty() {
                                 blank_lines += 1;
-                            } else if trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.ends_with("*/") {
+                            } else if trimmed.starts_with("//")
+                                || trimmed.starts_with("/*")
+                                || trimmed.ends_with("*/")
+                            {
                                 comment_lines += 1;
                             } else {
                                 code_lines += 1;

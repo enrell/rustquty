@@ -350,7 +350,7 @@ dependencies = [
 
 [[package]]
 name = "rustquty"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -361,12 +361,14 @@ dependencies = [
 
 [[package]]
 name = "rustquty-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
+ "proc-macro2",
  "rayon",
  "serde",
  "serde_json",
+ "syn",
  "tempfile",
  "thiserror",
  "toml",

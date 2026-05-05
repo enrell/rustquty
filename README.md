@@ -4,9 +4,10 @@ Local-first quality scanner for Rust projects.
 
 ## Features
 
-- **10 Quality Collectors**: fmt, clippy, tests, coverage, deny, audit, hack, mutants, duplicates, loc
+- **11 Quality Collectors**: fmt, clippy, tests, coverage, deny, audit, hack, mutants, duplicates, loc, size
 - **Line Length Enforcement**: Detects lines exceeding max line length (default 120 chars)
 - **Code Duplication Detection**: Finds duplicate lines across Rust source files
+- **Per-file & Per-function Size Metrics**: Lines, code lines, function parameter counts via AST analysis
 - **Profile-based Scanning**: fast (fmt+clippy), full (all except mutants), deep (all)
 - **Baseline Comparison**: Compare current metrics against established baselines
 - **CI/CD Ready**: GitHub Actions integration with artifact upload on failure
@@ -95,6 +96,12 @@ mutants = false
 [gate.coverage]
 min_line_percent = 80.0
 
+[gate.size]
+max-lines-per-file = 500
+max-code-lines-per-file = 400
+max-lines-per-function = 80
+max-parameters-per-function = 5
+
 [output]
 dir = "quality"
 ```
@@ -149,6 +156,7 @@ Or use the composite action from this repository:
 | mutants | `cargo mutants` | Mutation testing |
 | duplicates | (built-in) | Detects duplicate lines across files |
 | loc | (built-in) | Lines of code metrics + line length enforcement |
+| size | (built-in) | Per-file and per-function size metrics via AST |
 
 ## License
 

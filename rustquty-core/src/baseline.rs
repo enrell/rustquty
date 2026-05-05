@@ -3,7 +3,7 @@
 use crate::schema::{
     AuditThreshold, Baseline, ClippyThreshold, CoverageThreshold, DenyThreshold,
     DuplicatesThreshold, FmtThreshold, HackThreshold, LocThreshold, MutantsThreshold,
-    TestThreshold, Thresholds,
+    SizeThreshold, TestThreshold, Thresholds,
 };
 use std::path::Path;
 
@@ -52,6 +52,16 @@ impl BaselineWriter {
             },
             loc: LocThreshold {
                 max_line_length: summary.collectors.loc.max_line_length_found.max(120),
+            },
+            size: SizeThreshold {
+                max_lines_per_file: summary.collectors.size.max_lines_per_file.into(),
+                max_code_lines_per_file: summary.collectors.size.max_code_lines_per_file.into(),
+                max_lines_per_function: summary.collectors.size.max_lines_per_function.into(),
+                max_parameters_per_function: summary
+                    .collectors
+                    .size
+                    .max_parameters_per_function
+                    .into(),
             },
         };
 
@@ -111,6 +121,16 @@ impl BaselineWriter {
             },
             loc: LocThreshold {
                 max_line_length: summary.collectors.loc.max_line_length_found.max(120),
+            },
+            size: SizeThreshold {
+                max_lines_per_file: summary.collectors.size.max_lines_per_file.into(),
+                max_code_lines_per_file: summary.collectors.size.max_code_lines_per_file.into(),
+                max_lines_per_function: summary.collectors.size.max_lines_per_function.into(),
+                max_parameters_per_function: summary
+                    .collectors
+                    .size
+                    .max_parameters_per_function
+                    .into(),
             },
         };
 
@@ -188,7 +208,7 @@ mod tests {
         use crate::schema::{
             AuditResult, ClippyResult, CollectorStatus, CollectorsSummary, CoverageResult,
             DenyResult, DuplicatesResult, FmtResult, HackResult, LocResult, MutantsResult,
-            TestResult,
+            SizeResult, TestResult,
         };
 
         let summary = crate::schema::MetricsSummary {
@@ -260,6 +280,15 @@ mod tests {
                     files: 10,
                     files_with_long_lines: 0,
                     long_line_files: vec![],
+                },
+                size: SizeResult {
+                    status: CollectorStatus::Pass,
+                    files: 10,
+                    max_lines_per_file: 500,
+                    max_code_lines_per_file: 400,
+                    max_lines_per_function: 80,
+                    max_parameters_per_function: 5,
+                    violations: vec![],
                 },
             },
         };

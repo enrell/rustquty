@@ -6,7 +6,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use rustquty_core::{
     BaselineWriter, Gate,
-    config::Config,
+    config::{Config, SizeConfig},
     context::{CollectorName, Context, Profile},
     schema::{CollectorStatus, GateResult, MetricsSummary, QualityReport},
 };
@@ -61,7 +61,8 @@ fn parse_edition_from_content(content: &str) -> Option<String> {
             && let Some(eq_pos) = trimmed.find('=')
         {
             let value = trimmed[eq_pos + 1..].trim();
-            let edition = value.trim_matches(|c| c == ',' || c == '"' || c == ' ' || c == '\n' || c == '\r');
+            let edition =
+                value.trim_matches(|c| c == ',' || c == '"' || c == ' ' || c == '\n' || c == '\r');
             if !edition.is_empty() {
                 return Some(edition.to_string());
             }
@@ -72,7 +73,7 @@ fn parse_edition_from_content(content: &str) -> Option<String> {
 
 #[derive(Parser, Debug)]
 #[command(name = "rustquty")]
-#[command(version = "0.1.0")]
+#[command(version = "0.3.0")]
 #[command(about = "Local-first quality scanner for Rust projects")]
 struct Cli {
     /// Working directory of the Cargo workspace (default: cwd)
@@ -152,6 +153,9 @@ fn main() -> Result<()> {
             .unwrap_or(Profile::Full)
     });
 
+    // Extract size config from TOML if present.
+    let size_config = config.as_ref().and_then(|c| c.gate.size.clone());
+
     // Build context with CLI overrides
     let mut ctx = Context::new(project_dir.clone())
         .with_profile(profile)
@@ -182,7 +186,7 @@ fn main() -> Result<()> {
         }
 
         Commands::Collect => {
-            let summary = run_collectors(&ctx)?;
+            let summary = run_collectors(&ctx, size_config.clone())?;
             let json = serde_json::to_string_pretty(&summary)?;
             let path = output_dir.join("metricsSummary.json");
             std::fs::write(&path, &json)?;
@@ -219,7 +223,7 @@ fn main() -> Result<()> {
         }
 
         Commands::Qa => {
-            let summary = run_collectors(&ctx)?;
+            let summary = run_collectors(&ctx, size_config.clone())?;
             let json = serde_json::to_string_pretty(&summary)?;
             let path = output_dir.join("metricsSummary.json");
             std::fs::write(&path, &json)?;
@@ -283,10 +287,13 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn run_collectors(ctx: &Context) -> Result<MetricsSummary> {
+fn run_collectors(ctx: &Context, size_config: Option<SizeConfig>) -> Result<MetricsSummary> {
     use rustquty_core::collector::Collector;
 
-    let all: Vec<Box<dyn Collector>> = collectors::all_collectors();
+    let all: Vec<Box<dyn Collector>> = match &size_config {
+        Some(cfg) => collectors::all_collectors_with_size_config(Some(cfg.clone())),
+        None => collectors::all_collectors(),
+    };
 
     // Apply profile filtering
     let enabled: Vec<Box<dyn Collector>> = all
@@ -404,6 +411,15 @@ fn run_collectors(ctx: &Context) -> Result<MetricsSummary> {
         files_with_long_lines: 0,
         long_line_files: vec![],
     };
+    let mut size_result = rustquty_core::schema::SizeResult {
+        status: CollectorStatus::Skipped,
+        files: 0,
+        max_lines_per_file: 0,
+        max_code_lines_per_file: 0,
+        max_lines_per_function: 0,
+        max_parameters_per_function: 0,
+        violations: vec![],
+    };
 
     for (name, output) in &results {
         match *name {
@@ -417,6 +433,20 @@ fn run_collectors(ctx: &Context) -> Result<MetricsSummary> {
             "mutants" => mutants_result.status.clone_from(&output.status),
             "duplicates" => duplicates_result.status.clone_from(&output.status),
             "loc" => loc_result.status.clone_from(&output.status),
+            "size" => {
+                if let Ok(details) = serde_json::from_str::<serde_json::Value>(&output.stdout) {
+                    size_result.files = details["files"].as_u64().unwrap_or(0) as u32;
+                    size_result.max_lines_per_file =
+                        details["maxLinesPerFile"].as_u64().unwrap_or(0) as u32;
+                    size_result.max_code_lines_per_file =
+                        details["maxCodeLinesPerFile"].as_u64().unwrap_or(0) as u32;
+                    size_result.max_lines_per_function =
+                        details["maxLinesPerFunction"].as_u64().unwrap_or(0) as u32;
+                    size_result.max_parameters_per_function =
+                        details["maxParametersPerFunction"].as_u64().unwrap_or(0) as u32;
+                }
+                size_result.status.clone_from(&output.status);
+            }
             _ => {}
         }
     }
@@ -441,6 +471,7 @@ fn run_collectors(ctx: &Context) -> Result<MetricsSummary> {
             mutants: mutants_result,
             duplicates: duplicates_result,
             loc: loc_result,
+            size: size_result,
         },
     })
 }

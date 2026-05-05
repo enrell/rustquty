@@ -46,7 +46,8 @@ impl Collector for DuplicatesCollector {
                     && path.extension().is_some_and(|e| e == "rs")
                     && let Ok(content) = fs::read_to_string(&path)
                 {
-                    let lines: Vec<String> = content.lines().map(|s| s.trim().to_string()).collect();
+                    let lines: Vec<String> =
+                        content.lines().map(|s| s.trim().to_string()).collect();
                     total_lines += lines.len() as u32;
 
                     // Count line frequencies
@@ -73,9 +74,11 @@ impl Collector for DuplicatesCollector {
                 .iter()
                 .filter(|line| {
                     !line.is_empty()
-                    && !line.starts_with("//")
-                    && !line.starts_with("/*")
-                    && duplicate_line_keys.get(line.as_str()).is_some_and(|&c| c > 1)
+                        && !line.starts_with("//")
+                        && !line.starts_with("/*")
+                        && duplicate_line_keys
+                            .get(line.as_str())
+                            .is_some_and(|&c| c > 1)
                 })
                 .cloned()
                 .collect();

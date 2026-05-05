@@ -1,6 +1,6 @@
 [package]
 name = "rustquty-core"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 description = "Core library for rustquty, a local-first quality scanner for Rust projects"
 license = "MIT"
@@ -14,3 +14,5 @@ anyhow = "1"
 toml = "0.8"
 tempfile = "3"
 rayon = "1"
+syn = { version = "2", features = ["full"] }
+proc-macro2 = { version = "1", features = ["span-locations"] }

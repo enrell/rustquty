@@ -39,6 +39,7 @@ pub enum CollectorName {
     Mutants,
     Duplicates,
     Loc,
+    Size,
 }
 
 impl std::fmt::Display for CollectorName {
@@ -54,6 +55,7 @@ impl std::fmt::Display for CollectorName {
             CollectorName::Mutants => write!(f, "mutants"),
             CollectorName::Duplicates => write!(f, "duplicates"),
             CollectorName::Loc => write!(f, "loc"),
+            CollectorName::Size => write!(f, "size"),
         }
     }
 }
@@ -72,6 +74,7 @@ impl std::str::FromStr for CollectorName {
             "mutants" => Ok(CollectorName::Mutants),
             "duplicates" => Ok(CollectorName::Duplicates),
             "loc" => Ok(CollectorName::Loc),
+            "size" => Ok(CollectorName::Size),
             _ => Err(format!("unknown collector: {}", s)),
         }
     }

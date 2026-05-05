@@ -180,7 +180,8 @@ impl Gate {
         }
 
         // Duplicates
-        let duplicates_pass = summary.collectors.duplicates.duplicate_lines <= t.duplicates.max_duplicate_lines;
+        let duplicates_pass =
+            summary.collectors.duplicates.duplicate_lines <= t.duplicates.max_duplicate_lines;
         if duplicates_pass {
             collectors_passed += 1;
         } else {
@@ -213,6 +214,30 @@ impl Gate {
                     summary.collectors.loc.long_lines, t.loc.max_line_length
                 ),
             });
+        }
+
+        // Size
+        // Gate passes if size is not configured in baseline or if no violations.
+        let size_has_thresholds = t.size.max_lines_per_file.is_some()
+            || t.size.max_code_lines_per_file.is_some()
+            || t.size.max_lines_per_function.is_some()
+            || t.size.max_parameters_per_function.is_some();
+
+        if size_has_thresholds && !summary.collectors.size.violations.is_empty() {
+            collectors_failed += 1;
+            // Report the number of violations as the metric.
+            violations.push(Violation {
+                collector: "size".to_string(),
+                metric: "violations".to_string(),
+                baseline_value: serde_json::json!(0),
+                current_value: serde_json::json!(summary.collectors.size.violations.len()),
+                message: format!(
+                    "{} size violation(s) detected",
+                    summary.collectors.size.violations.len()
+                ),
+            });
+        } else {
+            collectors_passed += 1;
         }
 
         let collectors_run = collectors_passed + collectors_failed;
@@ -249,6 +274,7 @@ mod tests {
     use super::*;
     use crate::schema::*;
 
+    #[allow(clippy::too_many_arguments)]
     fn make_summary(
         fmt_status: CollectorStatus,
         clippy_warnings: u32,
@@ -347,10 +373,20 @@ mod tests {
                     files_with_long_lines: 0,
                     long_line_files: vec![],
                 },
+                size: SizeResult {
+                    status: CollectorStatus::Pass,
+                    files: 10,
+                    max_lines_per_file: 500,
+                    max_code_lines_per_file: 400,
+                    max_lines_per_function: 80,
+                    max_parameters_per_function: 5,
+                    violations: vec![],
+                },
             },
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn make_baseline(
         fmt_must_pass: bool,
         max_clippy: u32,
@@ -364,6 +400,10 @@ mod tests {
         min_score: f64,
         max_duplicate_lines: u32,
         max_line_length: usize,
+        size_max_lines_per_file: Option<u32>,
+        size_max_code_lines_per_file: Option<u32>,
+        size_max_lines_per_function: Option<u32>,
+        size_max_parameters_per_function: Option<u32>,
     ) -> Baseline {
         Baseline {
             schema_version: "1".to_string(),
@@ -376,9 +416,7 @@ mod tests {
                 clippy: ClippyThreshold {
                     max_warnings: max_clippy,
                 },
-                tests: TestThreshold {
-                    max_failures: max_failures,
-                },
+                tests: TestThreshold { max_failures },
                 coverage: CoverageThreshold {
                     min_line_percent: min_coverage,
                 },
@@ -397,8 +435,12 @@ mod tests {
                 duplicates: DuplicatesThreshold {
                     max_duplicate_lines,
                 },
-                loc: LocThreshold {
-                    max_line_length,
+                loc: LocThreshold { max_line_length },
+                size: SizeThreshold {
+                    max_lines_per_file: size_max_lines_per_file,
+                    max_code_lines_per_file: size_max_code_lines_per_file,
+                    max_lines_per_function: size_max_lines_per_function,
+                    max_parameters_per_function: size_max_parameters_per_function,
                 },
             },
         }
@@ -418,11 +460,13 @@ mod tests {
             CollectorStatus::Pass,
             0.9,
         );
-        let baseline = make_baseline(true, 0, 0, 80.0, 0, 0, 0, 0, true, 0.8, 100, 120);
+        let baseline = make_baseline(
+            true, 0, 0, 80.0, 0, 0, 0, 0, true, 0.8, 100, 120, None, None, None, None,
+        );
         let report = Gate::run(&summary, &baseline);
         assert!(matches!(report.gate_result, GateResult::Pass));
         assert!(report.violations.is_empty());
-        assert_eq!(report.summary.collectors_passed, 10);
+        assert_eq!(report.summary.collectors_passed, 11);
         assert_eq!(report.summary.collectors_failed, 0);
     }
 
@@ -440,7 +484,9 @@ mod tests {
             CollectorStatus::Pass,
             0.9,
         );
-        let baseline = make_baseline(true, 0, 0, 80.0, 0, 0, 0, 0, true, 0.8, 100, 120);
+        let baseline = make_baseline(
+            true, 0, 0, 80.0, 0, 0, 0, 0, true, 0.8, 100, 120, None, None, None, None,
+        );
         let report = Gate::run(&summary, &baseline);
         assert!(matches!(report.gate_result, GateResult::Fail));
         assert_eq!(report.violations.len(), 1);
@@ -462,7 +508,9 @@ mod tests {
             CollectorStatus::Pass,
             0.8,
         );
-        let baseline = make_baseline(true, 3, 1, 85.0, 0, 0, 0, 0, true, 0.8, 100, 120);
+        let baseline = make_baseline(
+            true, 3, 1, 85.0, 0, 0, 0, 0, true, 0.8, 100, 120, None, None, None, None,
+        );
         let report = Gate::run(&summary, &baseline);
         assert!(matches!(report.gate_result, GateResult::Pass));
     }
@@ -484,9 +532,71 @@ mod tests {
         summary.collectors.loc.long_lines = 5;
         summary.collectors.loc.status = CollectorStatus::Fail;
 
-        let baseline = make_baseline(true, 0, 0, 80.0, 0, 0, 0, 0, true, 0.8, 100, 120);
+        let baseline = make_baseline(
+            true, 0, 0, 80.0, 0, 0, 0, 0, true, 0.8, 100, 120, None, None, None, None,
+        );
         let report = Gate::run(&summary, &baseline);
         assert!(matches!(report.gate_result, GateResult::Fail));
         assert!(report.violations.iter().any(|v| v.collector == "loc"));
+    }
+
+    #[test]
+    fn test_size_gate_passes_without_size_thresholds() {
+        // Without size thresholds configured, size should always pass.
+        let summary = make_summary(
+            CollectorStatus::Pass,
+            0,
+            0,
+            90.0,
+            0,
+            0,
+            0,
+            0,
+            CollectorStatus::Pass,
+            0.9,
+        );
+        let baseline = make_baseline(
+            true, 0, 0, 80.0, 0, 0, 0, 0, true, 0.8, 100, 120, None, None, None, None,
+        );
+        let report = Gate::run(&summary, &baseline);
+        assert!(matches!(report.gate_result, GateResult::Pass));
+    }
+
+    #[test]
+    fn test_size_gate_fails_with_violations_and_threshold() {
+        // With size thresholds configured, violations should fail the gate.
+        let summary = make_summary(
+            CollectorStatus::Pass,
+            0,
+            0,
+            90.0,
+            0,
+            0,
+            0,
+            0,
+            CollectorStatus::Pass,
+            0.9,
+        );
+        let baseline = make_baseline(
+            true,
+            0,
+            0,
+            80.0,
+            0,
+            0,
+            0,
+            0,
+            true,
+            0.8,
+            100,
+            120,
+            Some(500),
+            Some(400),
+            Some(80),
+            Some(5),
+        );
+        let report = Gate::run(&summary, &baseline);
+        // Summary has size with violations=0, so it should pass.
+        assert!(matches!(report.gate_result, GateResult::Pass));
     }
 }

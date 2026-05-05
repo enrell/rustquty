@@ -55,12 +55,32 @@ pub struct ConfigCollectors {
 pub struct ConfigGate {
     #[serde(default)]
     pub coverage: Option<ConfigGateCoverage>,
+    #[serde(default)]
+    pub size: Option<SizeConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ConfigGateCoverage {
     #[serde(default)]
     pub min_line_percent: Option<f64>,
+}
+
+/// Configuration for the size gate, loaded from [gate.size] in TOML.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "kebab-case")]
+pub struct SizeConfig {
+    /// Maximum total lines per file.
+    #[serde(default)]
+    pub max_lines_per_file: Option<u32>,
+    /// Maximum code lines per file (non-comment, non-blank).
+    #[serde(default)]
+    pub max_code_lines_per_file: Option<u32>,
+    /// Maximum lines per function.
+    #[serde(default)]
+    pub max_lines_per_function: Option<u32>,
+    /// Maximum parameters per function.
+    #[serde(default)]
+    pub max_parameters_per_function: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]

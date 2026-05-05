@@ -24,6 +24,16 @@ max_warnings = 0
 [gate.tests]
 max_failures = 0
 
+[gate.size]
+# Maximum total lines per file (optional, omit to skip this rule)
+max_lines_per_file = 1000
+# Maximum code lines per file (non-comment, non-blank lines)
+max_code_lines_per_file = 700
+# Maximum lines per function
+max_lines_per_function = 80
+# Maximum parameters per function
+max_parameters_per_function = 6
+
 [output]
 # Override default quality/ output directory
 # dir = "quality"

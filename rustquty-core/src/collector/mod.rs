@@ -9,12 +9,14 @@ pub mod fmt;
 pub mod hack;
 pub mod loc;
 pub mod mutants;
+pub mod size;
 pub mod tests;
 
 use crate::context::Context;
 use crate::schema::{
     AuditResult, ClippyResult, CollectorStatus, CoverageResult, DenyResult, DuplicatesResult,
-    FmtResult, HackResult, LocResult, MetricsSummary, MutantsResult, ProjectInfo, TestResult,
+    FmtResult, HackResult, LocResult, MetricsSummary, MutantsResult, ProjectInfo, SizeResult,
+    TestResult,
 };
 use std::time::Instant;
 
@@ -190,6 +192,15 @@ pub fn run_collectors(
         files_with_long_lines: 0,
         long_line_files: vec![],
     };
+    let mut size_result = SizeResult {
+        status: CollectorStatus::Skipped,
+        files: 0,
+        max_lines_per_file: 0,
+        max_code_lines_per_file: 0,
+        max_lines_per_function: 0,
+        max_parameters_per_function: 0,
+        violations: vec![],
+    };
 
     for (name, output) in &results {
         match *name {
@@ -203,6 +214,7 @@ pub fn run_collectors(
             "mutants" => mutants_result.status.clone_from(&output.status),
             "duplicates" => duplicates_result.status.clone_from(&output.status),
             "loc" => loc_result.status.clone_from(&output.status),
+            "size" => size_result.status.clone_from(&output.status),
             _ => {}
         }
     }
@@ -227,6 +239,7 @@ pub fn run_collectors(
             mutants: mutants_result,
             duplicates: duplicates_result,
             loc: loc_result,
+            size: size_result,
         },
     }
 }
