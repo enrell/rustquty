@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-05-04
+
+### Added
+
+- **duplicates collector**: Detects code duplication by finding identical lines across Rust source files. Tracks total lines, duplicate lines, and files with duplicates. Status passes when no duplicates are found.
+
+- **loc collector**: Measures lines of code metrics including total, code, comment, and blank lines. Also enforces **max line length** (default 120 chars) and reports files with long lines.
+
+- **Rust edition detection**: Properly detects Rust edition from `[package]` section in member crate Cargo.toml files, supporting Rust 2024 edition.
+
+### Changed
+
+- All 10 collectors now included by default: fmt, clippy, tests, coverage, deny, audit, hack, mutants, **duplicates**, **loc**
+- `rustquty doctor` now shows 10 collectors
+
+### Fixed
+
+- Fixed hardcoded `rust_edition: "2021"` to properly detect edition from Cargo.toml
+- Updated schema to include `duplicates` and `loc` result and threshold types
+- Updated baseline writer to handle new collector metrics
+- Fixed clippy warnings in new collectors (collapsible_if, unnecessary_map_or)
+
 ## [0.1.0] - 2026-05-04
 
 ### Added
@@ -66,3 +88,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 | mutants | `cargo-mutants` | `cargo install cargo-mutants` |
 
 [0.1.0]: https://github.com/rustquty/rustquty/releases/tag/v0.1.0
+[0.2.0]: https://github.com/rustquty/rustquty/releases/tag/v0.2.0

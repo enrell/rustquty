@@ -2,8 +2,8 @@
 
 use rustquty_core::collector::{
     Collector, audit::AuditCollector, clippy::ClippyCollector, coverage::CoverageCollector,
-    deny::DenyCollector, fmt::FmtCollector, hack::HackCollector, mutants::MutantsCollector,
-    tests::TestCollector,
+    deny::DenyCollector, duplicates::DuplicatesCollector, fmt::FmtCollector,
+    hack::HackCollector, loc::LocCollector, mutants::MutantsCollector, tests::TestCollector,
 };
 
 pub fn all_collectors() -> Vec<Box<dyn Collector>> {
@@ -16,5 +16,7 @@ pub fn all_collectors() -> Vec<Box<dyn Collector>> {
         Box::new(AuditCollector::new()),
         Box::new(HackCollector::new()),
         Box::new(MutantsCollector::new()),
+        Box::new(DuplicatesCollector::new()),
+        Box::new(LocCollector::new()),
     ]
 }

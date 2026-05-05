@@ -1,8 +1,9 @@
 //! Baseline file management.
 
 use crate::schema::{
-    AuditThreshold, Baseline, ClippyThreshold, CoverageThreshold, DenyThreshold, FmtThreshold,
-    HackThreshold, MutantsThreshold, TestThreshold, Thresholds,
+    AuditThreshold, Baseline, ClippyThreshold, CoverageThreshold, DenyThreshold,
+    DuplicatesThreshold, FmtThreshold, HackThreshold, LocThreshold, MutantsThreshold,
+    TestThreshold, Thresholds,
 };
 use std::path::Path;
 
@@ -45,6 +46,12 @@ impl BaselineWriter {
             },
             mutants: MutantsThreshold {
                 min_score: summary.collectors.mutants.mutation_score,
+            },
+            duplicates: DuplicatesThreshold {
+                max_duplicate_lines: summary.collectors.duplicates.duplicate_lines,
+            },
+            loc: LocThreshold {
+                max_line_length: summary.collectors.loc.max_line_length_found.max(120),
             },
         };
 
@@ -98,6 +105,12 @@ impl BaselineWriter {
             },
             mutants: MutantsThreshold {
                 min_score: summary.collectors.mutants.mutation_score,
+            },
+            duplicates: DuplicatesThreshold {
+                max_duplicate_lines: summary.collectors.duplicates.duplicate_lines,
+            },
+            loc: LocThreshold {
+                max_line_length: summary.collectors.loc.max_line_length_found.max(120),
             },
         };
 
@@ -174,7 +187,8 @@ mod tests {
     fn test_baseline_writer_init() {
         use crate::schema::{
             AuditResult, ClippyResult, CollectorStatus, CollectorsSummary, CoverageResult,
-            DenyResult, FmtResult, HackResult, MutantsResult, TestResult,
+            DenyResult, DuplicatesResult, FmtResult, HackResult, LocResult, MutantsResult,
+            TestResult,
         };
 
         let summary = crate::schema::MetricsSummary {
@@ -226,6 +240,26 @@ mod tests {
                     mutation_score: 0.85,
                     caught: 85,
                     missed: 15,
+                },
+                duplicates: DuplicatesResult {
+                    status: CollectorStatus::Pass,
+                    total_lines: 1000,
+                    duplicate_lines: 5,
+                    files_with_duplicates: 2,
+                    duplicate_files: vec!["src/a.rs".to_string()],
+                },
+                loc: LocResult {
+                    status: CollectorStatus::Pass,
+                    total_lines: 1000,
+                    code_lines: 800,
+                    comment_lines: 100,
+                    blank_lines: 100,
+                    long_lines: 0,
+                    max_line_length_found: 100,
+                    max_line_length_allowed: 120,
+                    files: 10,
+                    files_with_long_lines: 0,
+                    long_line_files: vec![],
                 },
             },
         };

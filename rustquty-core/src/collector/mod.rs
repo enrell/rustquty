@@ -4,15 +4,17 @@ pub mod audit;
 pub mod clippy;
 pub mod coverage;
 pub mod deny;
+pub mod duplicates;
 pub mod fmt;
 pub mod hack;
+pub mod loc;
 pub mod mutants;
 pub mod tests;
 
 use crate::context::Context;
 use crate::schema::{
-    AuditResult, ClippyResult, CollectorStatus, CoverageResult, DenyResult, FmtResult, HackResult,
-    MetricsSummary, MutantsResult, ProjectInfo, TestResult,
+    AuditResult, ClippyResult, CollectorStatus, CoverageResult, DenyResult, DuplicatesResult,
+    FmtResult, HackResult, LocResult, MetricsSummary, MutantsResult, ProjectInfo, TestResult,
 };
 use std::time::Instant;
 
@@ -168,6 +170,26 @@ pub fn run_collectors(
         caught: 0,
         missed: 0,
     };
+    let mut duplicates_result = DuplicatesResult {
+        status: CollectorStatus::Skipped,
+        total_lines: 0,
+        duplicate_lines: 0,
+        files_with_duplicates: 0,
+        duplicate_files: vec![],
+    };
+    let mut loc_result = LocResult {
+        status: CollectorStatus::Skipped,
+        total_lines: 0,
+        code_lines: 0,
+        comment_lines: 0,
+        blank_lines: 0,
+        long_lines: 0,
+        max_line_length_found: 0,
+        max_line_length_allowed: 0,
+        files: 0,
+        files_with_long_lines: 0,
+        long_line_files: vec![],
+    };
 
     for (name, output) in &results {
         match *name {
@@ -179,6 +201,8 @@ pub fn run_collectors(
             "audit" => audit_result.status.clone_from(&output.status),
             "hack" => hack_result.status.clone_from(&output.status),
             "mutants" => mutants_result.status.clone_from(&output.status),
+            "duplicates" => duplicates_result.status.clone_from(&output.status),
+            "loc" => loc_result.status.clone_from(&output.status),
             _ => {}
         }
     }
@@ -201,6 +225,8 @@ pub fn run_collectors(
             audit: audit_result,
             hack: hack_result,
             mutants: mutants_result,
+            duplicates: duplicates_result,
+            loc: loc_result,
         },
     }
 }

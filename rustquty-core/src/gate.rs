@@ -179,6 +179,42 @@ impl Gate {
             });
         }
 
+        // Duplicates
+        let duplicates_pass = summary.collectors.duplicates.duplicate_lines <= t.duplicates.max_duplicate_lines;
+        if duplicates_pass {
+            collectors_passed += 1;
+        } else {
+            collectors_failed += 1;
+            violations.push(Violation {
+                collector: "duplicates".to_string(),
+                metric: "duplicate_lines".to_string(),
+                baseline_value: serde_json::json!(t.duplicates.max_duplicate_lines),
+                current_value: serde_json::json!(summary.collectors.duplicates.duplicate_lines),
+                message: format!(
+                    "duplicate lines ({}) exceed maximum ({})",
+                    summary.collectors.duplicates.duplicate_lines, t.duplicates.max_duplicate_lines
+                ),
+            });
+        }
+
+        // LOC
+        let loc_pass = summary.collectors.loc.long_lines == 0;
+        if loc_pass {
+            collectors_passed += 1;
+        } else {
+            collectors_failed += 1;
+            violations.push(Violation {
+                collector: "loc".to_string(),
+                metric: "long_lines".to_string(),
+                baseline_value: serde_json::json!(0),
+                current_value: serde_json::json!(summary.collectors.loc.long_lines),
+                message: format!(
+                    "{} lines exceed max length ({})",
+                    summary.collectors.loc.long_lines, t.loc.max_line_length
+                ),
+            });
+        }
+
         let collectors_run = collectors_passed + collectors_failed;
         let gate_result = if violations.is_empty() {
             GateResult::Pass
@@ -291,6 +327,26 @@ mod tests {
                     caught: 80,
                     missed: 20,
                 },
+                duplicates: DuplicatesResult {
+                    status: CollectorStatus::Pass,
+                    total_lines: 1000,
+                    duplicate_lines: 0,
+                    files_with_duplicates: 0,
+                    duplicate_files: vec![],
+                },
+                loc: LocResult {
+                    status: CollectorStatus::Pass,
+                    total_lines: 1000,
+                    code_lines: 800,
+                    comment_lines: 100,
+                    blank_lines: 100,
+                    long_lines: 0,
+                    max_line_length_found: 100,
+                    max_line_length_allowed: 120,
+                    files: 10,
+                    files_with_long_lines: 0,
+                    long_line_files: vec![],
+                },
             },
         }
     }
@@ -306,6 +362,8 @@ mod tests {
         max_critical: u32,
         hack_must_pass: bool,
         min_score: f64,
+        max_duplicate_lines: u32,
+        max_line_length: usize,
     ) -> Baseline {
         Baseline {
             schema_version: "1".to_string(),
@@ -336,6 +394,12 @@ mod tests {
                     must_pass: hack_must_pass,
                 },
                 mutants: MutantsThreshold { min_score },
+                duplicates: DuplicatesThreshold {
+                    max_duplicate_lines,
+                },
+                loc: LocThreshold {
+                    max_line_length,
+                },
             },
         }
     }
@@ -354,11 +418,11 @@ mod tests {
             CollectorStatus::Pass,
             0.9,
         );
-        let baseline = make_baseline(true, 0, 0, 80.0, 0, 0, 0, 0, true, 0.8);
+        let baseline = make_baseline(true, 0, 0, 80.0, 0, 0, 0, 0, true, 0.8, 100, 120);
         let report = Gate::run(&summary, &baseline);
         assert!(matches!(report.gate_result, GateResult::Pass));
         assert!(report.violations.is_empty());
-        assert_eq!(report.summary.collectors_passed, 8);
+        assert_eq!(report.summary.collectors_passed, 10);
         assert_eq!(report.summary.collectors_failed, 0);
     }
 
@@ -376,7 +440,7 @@ mod tests {
             CollectorStatus::Pass,
             0.9,
         );
-        let baseline = make_baseline(true, 0, 0, 80.0, 0, 0, 0, 0, true, 0.8);
+        let baseline = make_baseline(true, 0, 0, 80.0, 0, 0, 0, 0, true, 0.8, 100, 120);
         let report = Gate::run(&summary, &baseline);
         assert!(matches!(report.gate_result, GateResult::Fail));
         assert_eq!(report.violations.len(), 1);
@@ -398,8 +462,31 @@ mod tests {
             CollectorStatus::Pass,
             0.8,
         );
-        let baseline = make_baseline(true, 3, 1, 85.0, 0, 0, 0, 0, true, 0.8);
+        let baseline = make_baseline(true, 3, 1, 85.0, 0, 0, 0, 0, true, 0.8, 100, 120);
         let report = Gate::run(&summary, &baseline);
         assert!(matches!(report.gate_result, GateResult::Pass));
+    }
+
+    #[test]
+    fn test_gate_fails_when_loc_exceeds_max_line_length() {
+        let mut summary = make_summary(
+            CollectorStatus::Pass,
+            0,
+            0,
+            90.0,
+            0,
+            0,
+            0,
+            0,
+            CollectorStatus::Pass,
+            0.9,
+        );
+        summary.collectors.loc.long_lines = 5;
+        summary.collectors.loc.status = CollectorStatus::Fail;
+
+        let baseline = make_baseline(true, 0, 0, 80.0, 0, 0, 0, 0, true, 0.8, 100, 120);
+        let report = Gate::run(&summary, &baseline);
+        assert!(matches!(report.gate_result, GateResult::Fail));
+        assert!(report.violations.iter().any(|v| v.collector == "loc"));
     }
 }

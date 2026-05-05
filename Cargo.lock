@@ -350,7 +350,7 @@ dependencies = [
 
 [[package]]
 name = "rustquty"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -361,7 +361,7 @@ dependencies = [
 
 [[package]]
 name = "rustquty-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "rayon",

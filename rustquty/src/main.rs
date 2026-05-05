@@ -12,6 +12,64 @@ use rustquty_core::{
 };
 use std::path::PathBuf;
 
+/// Detect Rust edition from Cargo.toml
+fn detect_rust_edition(workspace_root: &PathBuf) -> String {
+    // First try workspace Cargo.toml
+    let cargo_toml = workspace_root.join("Cargo.toml");
+    if let Ok(content) = std::fs::read_to_string(&cargo_toml)
+        && let Some(edition) = parse_edition_from_content(&content)
+    {
+        return edition;
+    }
+
+    // Try looking for member crate Cargo.toml (rustquty/Cargo.toml or rustquty-core/Cargo.toml)
+    if let Ok(entries) = std::fs::read_dir(workspace_root) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let member_cargo = path.join("Cargo.toml");
+                if let Ok(content) = std::fs::read_to_string(&member_cargo)
+                    && content.contains("[package]")
+                    && content.contains("edition")
+                    && let Some(edition) = parse_edition_from_content(&content)
+                {
+                    return edition;
+                }
+            }
+        }
+    }
+
+    "2021".to_string()
+}
+
+fn parse_edition_from_content(content: &str) -> Option<String> {
+    let mut in_package_section = false;
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+
+        // Track which section we're in
+        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            let section = &trimmed[1..trimmed.len() - 1];
+            in_package_section = section == "package";
+        }
+
+        // Only look for edition in [package] section
+        if in_package_section
+            && trimmed.starts_with("edition")
+            && trimmed.contains('=')
+            && let Some(eq_pos) = trimmed.find('=')
+        {
+            let value = trimmed[eq_pos + 1..].trim();
+            let edition = value.trim_matches(|c| c == ',' || c == '"' || c == ' ' || c == '\n' || c == '\r');
+            if !edition.is_empty() {
+                return Some(edition.to_string());
+            }
+        }
+    }
+    None
+}
+
 #[derive(Parser, Debug)]
 #[command(name = "rustquty")]
 #[command(version = "0.1.0")]
@@ -326,6 +384,26 @@ fn run_collectors(ctx: &Context) -> Result<MetricsSummary> {
         caught: 0,
         missed: 0,
     };
+    let mut duplicates_result = rustquty_core::schema::DuplicatesResult {
+        status: CollectorStatus::Skipped,
+        total_lines: 0,
+        duplicate_lines: 0,
+        files_with_duplicates: 0,
+        duplicate_files: vec![],
+    };
+    let mut loc_result = rustquty_core::schema::LocResult {
+        status: CollectorStatus::Skipped,
+        total_lines: 0,
+        code_lines: 0,
+        comment_lines: 0,
+        blank_lines: 0,
+        long_lines: 0,
+        max_line_length_found: 0,
+        max_line_length_allowed: 120,
+        files: 0,
+        files_with_long_lines: 0,
+        long_line_files: vec![],
+    };
 
     for (name, output) in &results {
         match *name {
@@ -337,6 +415,8 @@ fn run_collectors(ctx: &Context) -> Result<MetricsSummary> {
             "audit" => audit_result.status.clone_from(&output.status),
             "hack" => hack_result.status.clone_from(&output.status),
             "mutants" => mutants_result.status.clone_from(&output.status),
+            "duplicates" => duplicates_result.status.clone_from(&output.status),
+            "loc" => loc_result.status.clone_from(&output.status),
             _ => {}
         }
     }
@@ -347,7 +427,7 @@ fn run_collectors(ctx: &Context) -> Result<MetricsSummary> {
         rustquty_version: env!("CARGO_PKG_VERSION").to_string(),
         project: rustquty_core::schema::ProjectInfo {
             name: project_name,
-            rust_edition: "2021".to_string(),
+            rust_edition: detect_rust_edition(&ctx.workspace_root),
             workspace_root: ctx.workspace_root.to_string_lossy().to_string(),
         },
         collectors: rustquty_core::schema::CollectorsSummary {
@@ -359,6 +439,8 @@ fn run_collectors(ctx: &Context) -> Result<MetricsSummary> {
             audit: audit_result,
             hack: hack_result,
             mutants: mutants_result,
+            duplicates: duplicates_result,
+            loc: loc_result,
         },
     })
 }

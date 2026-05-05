@@ -36,6 +36,8 @@ pub struct CollectorsSummary {
     pub audit: AuditResult,
     pub hack: HackResult,
     pub mutants: MutantsResult,
+    pub duplicates: DuplicatesResult,
+    pub loc: LocResult,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -115,6 +117,36 @@ pub struct MutantsResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DuplicatesResult {
+    pub status: CollectorStatus,
+    pub total_lines: u32,
+    pub duplicate_lines: u32,
+    #[serde(default)]
+    pub files_with_duplicates: u32,
+    #[serde(default)]
+    pub duplicate_files: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct LocResult {
+    pub status: CollectorStatus,
+    pub total_lines: u32,
+    pub code_lines: u32,
+    pub comment_lines: u32,
+    pub blank_lines: u32,
+    pub long_lines: u32,
+    pub max_line_length_found: usize,
+    pub max_line_length_allowed: usize,
+    pub files: u32,
+    #[serde(default)]
+    pub files_with_long_lines: u32,
+    #[serde(default)]
+    pub long_line_files: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum CollectorStatus {
     Pass,
@@ -147,6 +179,8 @@ pub struct Thresholds {
     pub audit: AuditThreshold,
     pub hack: HackThreshold,
     pub mutants: MutantsThreshold,
+    pub duplicates: DuplicatesThreshold,
+    pub loc: LocThreshold,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -197,6 +231,18 @@ pub struct HackThreshold {
 #[serde(rename_all = "camelCase")]
 pub struct MutantsThreshold {
     pub min_score: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DuplicatesThreshold {
+    pub max_duplicate_lines: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct LocThreshold {
+    pub max_line_length: usize,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -311,7 +357,9 @@ mod tests {
             "deny": { "status": "skipped", "bannedCount": 0, "licenseViolations": 0 },
             "audit": { "status": "skipped", "vulnerabilityCount": 0, "criticalCount": 0 },
             "hack": { "status": "skipped", "featureCombinationsTested": 0 },
-            "mutants": { "status": "skipped", "mutationScore": 0.0, "caught": 0, "missed": 0 }
+            "mutants": { "status": "skipped", "mutationScore": 0.0, "caught": 0, "missed": 0 },
+            "duplicates": { "status": "skipped", "totalLines": 0, "duplicateLines": 0, "filesWithDuplicates": 0, "duplicateFiles": [] },
+            "loc": { "status": "skipped", "totalLines": 0, "codeLines": 0, "commentLines": 0, "blankLines": 0, "longLines": 0, "maxLineLengthFound": 0, "maxLineLengthAllowed": 120, "files": 0, "filesWithLongLines": 0, "longLineFiles": [] }
           }
         }"#;
         let summary: MetricsSummary = serde_json::from_str(json).unwrap();
@@ -334,7 +382,9 @@ mod tests {
             "deny": { "maxBanned": 0, "maxLicenseViolations": 0 },
             "audit": { "maxVulnerabilities": 0, "maxCritical": 0 },
             "hack": { "mustPass": true },
-            "mutants": { "minScore": 0.8 }
+            "mutants": { "minScore": 0.8 },
+            "duplicates": { "maxDuplicateLines": 100 },
+            "loc": { "maxLineLength": 120 }
           }
         }"#;
         let baseline: Baseline = serde_json::from_str(json).unwrap();
@@ -390,7 +440,9 @@ mod tests {
             "deny": { "status": "pass", "bannedCount": 0, "licenseViolations": 0 },
             "audit": { "status": "pass", "vulnerabilityCount": 0, "criticalCount": 0 },
             "hack": { "status": "pass", "featureCombinationsTested": 0 },
-            "mutants": { "status": "pass", "mutationScore": 0.0, "caught": 0, "missed": 0 }
+            "mutants": { "status": "pass", "mutationScore": 0.0, "caught": 0, "missed": 0 },
+            "duplicates": { "status": "pass", "totalLines": 1000, "duplicateLines": 0, "filesWithDuplicates": 0, "duplicateFiles": [] },
+            "loc": { "status": "pass", "totalLines": 1000, "codeLines": 800, "commentLines": 100, "blankLines": 100, "longLines": 0, "maxLineLengthFound": 100, "maxLineLengthAllowed": 120, "files": 10, "filesWithLongLines": 0, "longLineFiles": [] }
           }
         }"#;
         let summary: MetricsSummary = serde_json::from_str(json).unwrap();

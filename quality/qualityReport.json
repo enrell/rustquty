@@ -1,12 +1,12 @@
 {
   "schemaVersion": "1",
-  "generatedAt": "1777934910",
+  "generatedAt": "1777939401",
   "gateResult": "pass",
   "violations": [],
   "summary": {
-    "collectorsRun": 7,
-    "collectorsPassed": 7,
-    "collectorsFailed": 0,
+    "collectorsRun": 9,
+    "collectorsPassed": 8,
+    "collectorsFailed": 1,
     "collectorsSkipped": 1
   }
 }

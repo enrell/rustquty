@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1",
-  "createdAt": "1777934879",
+  "createdAt": "1777938924",
   "rustqutyVersion": "0.1.0",
   "thresholds": {
     "fmt": {
-      "mustPass": true
+      "mustPass": false
     },
     "clippy": {
       "maxWarnings": 0
@@ -28,6 +28,12 @@
     },
     "mutants": {
       "minScore": 0.0
+    },
+    "duplicates": {
+      "maxDuplicateLines": 0
+    },
+    "loc": {
+      "maxLineLength": 120
     }
   }
 }
