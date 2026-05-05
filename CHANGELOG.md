@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-05-04
+
+### Added
+
+- **complexity collector**: AST-based cyclomatic complexity and nesting depth metrics per function. Counts decision points (if, match arms, loops, &&, ||, ?) and tracks maximum nesting depth. Built-in, no external tool required.
+
+### Configuration
+
+```toml
+[gate.complexity]
+max-cyclomatic-per-function = 10  # Optional
+max-nesting-depth = 5             # Optional
+```
+
+### Metrics
+
+- `functions`: total functions analyzed
+- `maxCyclomaticComplexity`: highest complexity in workspace
+- `maxNestingDepth`: deepest nesting level found
+- `complexFunctions`: count of functions exceeding threshold
+- `violations`: per-function violations with file, line, function name, actual vs threshold
+
+### Changed
+
+- All 12 collectors now included by default: fmt, clippy, tests, coverage, deny, audit, hack, mutants, duplicates, loc, size, **complexity**
+
 ## [0.2.0] - 2026-05-04
 
 ### Added
@@ -89,3 +115,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [0.1.0]: https://github.com/rustquty/rustquty/releases/tag/v0.1.0
 [0.2.0]: https://github.com/rustquty/rustquty/releases/tag/v0.2.0
+[0.3.0]: https://github.com/rustquty/rustquty/releases/tag/v0.3.0
