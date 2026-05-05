@@ -48,7 +48,7 @@ impl Collector for LocCollector {
             if !path.is_file() {
                 continue;
             }
-            if !path.extension().is_some_and(|e| e == "rs") {
+            if path.extension().is_none_or(|e| e != "rs") {
                 continue;
             }
             let Ok(content) = fs::read_to_string(path) else {

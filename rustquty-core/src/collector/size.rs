@@ -191,109 +191,109 @@ impl SizeCollector {
             .filter_map(|e| e.ok())
         {
             let path = entry.path();
-            if path.is_file() && path.extension().is_some_and(|e| e == "rs") {
+            if path.is_file()
+                && path.extension().is_some_and(|e| e == "rs")
+                && let Ok(content) = fs::read_to_string(path)
+            {
                 total_files += 1;
+                let lines = count_total_lines(&content);
+                let code_lines = count_code_lines(&content);
 
-                if let Ok(content) = fs::read_to_string(&path) {
-                    let lines = count_total_lines(&content);
-                    let code_lines = count_code_lines(&content);
+                if lines > max_lines_per_file {
+                    max_lines_per_file = lines;
+                }
+                if code_lines > max_code_lines_per_file {
+                    max_code_lines_per_file = code_lines;
+                }
 
-                    if lines > max_lines_per_file {
-                        max_lines_per_file = lines;
+                let file_name = path
+                    .file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "unknown".to_string());
+
+                // Check file-level violations.
+                if let Some(max) = self.config.max_lines_per_file
+                    && lines > max
+                {
+                    violations.push(SizeViolation {
+                        rule_id: "size:max-lines-per-file".to_string(),
+                        file: file_name.clone(),
+                        line: 1,
+                        function: None,
+                        message: format!(
+                            "File has {} lines; maximum allowed is {}",
+                            lines, max
+                        ),
+                        actual: lines,
+                        threshold: max,
+                        severity: "major".to_string(),
+                    });
+                }
+                if let Some(max) = self.config.max_code_lines_per_file
+                    && code_lines > max
+                {
+                    violations.push(SizeViolation {
+                        rule_id: "size:max-code-lines-per-file".to_string(),
+                        file: file_name.clone(),
+                        line: 1,
+                        function: None,
+                        message: format!(
+                            "File has {} code lines; maximum allowed is {}",
+                            code_lines, max
+                        ),
+                        actual: code_lines,
+                        threshold: max,
+                        severity: "major".to_string(),
+                    });
+                }
+
+                // Extract and process functions.
+                let functions = extract_functions(&content, path);
+                for func in functions {
+                    if func.total_lines > max_lines_per_function {
+                        max_lines_per_function = func.total_lines;
                     }
-                    if code_lines > max_code_lines_per_file {
-                        max_code_lines_per_file = code_lines;
+                    if func.param_count as u32 > max_parameters_per_function {
+                        max_parameters_per_function = func.param_count as u32;
                     }
 
-                    let file_name = path
-                        .file_name()
-                        .map(|s| s.to_string_lossy().to_string())
-                        .unwrap_or_else(|| "unknown".to_string());
-
-                    // Check file-level violations.
-                    if let Some(max) = self.config.max_lines_per_file
-                        && lines > max
+                    // Check function-level violations.
+                    if let Some(max) = self.config.max_lines_per_function
+                        && func.total_lines > max
                     {
                         violations.push(SizeViolation {
-                            rule_id: "size:max-lines-per-file".to_string(),
-                            file: file_name.clone(),
-                            line: 1,
-                            function: None,
+                            rule_id: "size:max-lines-per-function".to_string(),
+                            file: func.file.clone(),
+                            line: func.start_line,
+                            function: Some(func.name.clone()),
                             message: format!(
-                                "File has {} lines; maximum allowed is {}",
-                                lines, max
+                                "Function `{}` has {} lines; maximum allowed is {}",
+                                func.name, func.total_lines, max
                             ),
-                            actual: lines,
+                            actual: func.total_lines,
                             threshold: max,
                             severity: "major".to_string(),
                         });
                     }
-                    if let Some(max) = self.config.max_code_lines_per_file
-                        && code_lines > max
+                    if let Some(max) = self.config.max_parameters_per_function
+                        && func.param_count as u32 > max
                     {
                         violations.push(SizeViolation {
-                            rule_id: "size:max-code-lines-per-file".to_string(),
-                            file: file_name.clone(),
-                            line: 1,
-                            function: None,
+                            rule_id: "size:max-parameters-per-function".to_string(),
+                            file: func.file.clone(),
+                            line: func.start_line,
+                            function: Some(func.name.clone()),
                             message: format!(
-                                "File has {} code lines; maximum allowed is {}",
-                                code_lines, max
+                                "Function `{}` has {} parameters; maximum allowed is {}",
+                                func.name, func.param_count, max
                             ),
-                            actual: code_lines,
+                            actual: func.param_count as u32,
                             threshold: max,
                             severity: "major".to_string(),
                         });
                     }
 
-                    // Extract and process functions.
-                    let functions = extract_functions(&content, &path);
-                    for func in functions {
-                        if func.total_lines > max_lines_per_function {
-                            max_lines_per_function = func.total_lines;
-                        }
-                        if func.param_count as u32 > max_parameters_per_function {
-                            max_parameters_per_function = func.param_count as u32;
-                        }
-
-                        // Check function-level violations.
-                        if let Some(max) = self.config.max_lines_per_function
-                            && func.total_lines > max
-                        {
-                            violations.push(SizeViolation {
-                                rule_id: "size:max-lines-per-function".to_string(),
-                                file: func.file.clone(),
-                                line: func.start_line,
-                                function: Some(func.name.clone()),
-                                message: format!(
-                                    "Function `{}` has {} lines; maximum allowed is {}",
-                                    func.name, func.total_lines, max
-                                ),
-                                actual: func.total_lines,
-                                threshold: max,
-                                severity: "major".to_string(),
-                            });
-                        }
-                        if let Some(max) = self.config.max_parameters_per_function
-                            && func.param_count as u32 > max
-                        {
-                            violations.push(SizeViolation {
-                                rule_id: "size:max-parameters-per-function".to_string(),
-                                file: func.file.clone(),
-                                line: func.start_line,
-                                function: Some(func.name.clone()),
-                                message: format!(
-                                    "Function `{}` has {} parameters; maximum allowed is {}",
-                                    func.name, func.param_count, max
-                                ),
-                                actual: func.param_count as u32,
-                                threshold: max,
-                                severity: "major".to_string(),
-                            });
-                        }
-
-                        all_functions.push(func);
-                    }
+                    all_functions.push(func);
                 }
             }
         }
