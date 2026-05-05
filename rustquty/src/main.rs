@@ -44,6 +44,7 @@ fn detect_rust_edition(workspace_root: &PathBuf) -> String {
 
 fn parse_edition_from_content(content: &str) -> Option<String> {
     let mut in_package_section = false;
+    let mut in_workspace_package = false;
 
     for line in content.lines() {
         let trimmed = line.trim();
@@ -52,10 +53,12 @@ fn parse_edition_from_content(content: &str) -> Option<String> {
         if trimmed.starts_with('[') && trimmed.ends_with(']') {
             let section = &trimmed[1..trimmed.len() - 1];
             in_package_section = section == "package";
+            in_workspace_package = section == "workspace.package";
         }
 
-        // Only look for edition in [package] section
-        if in_package_section
+        // Look for edition in [package] or [workspace.package] section
+        let in_relevant_section = in_package_section || in_workspace_package;
+        if in_relevant_section
             && trimmed.starts_with("edition")
             && trimmed.contains('=')
             && let Some(eq_pos) = trimmed.find('=')
@@ -73,7 +76,7 @@ fn parse_edition_from_content(content: &str) -> Option<String> {
 
 #[derive(Parser, Debug)]
 #[command(name = "rustquty")]
-#[command(version = "0.3.0")]
+#[command(version = "0.3.1")]
 #[command(about = "Local-first quality scanner for Rust projects")]
 struct Cli {
     /// Working directory of the Cargo workspace (default: cwd)
@@ -449,8 +452,30 @@ fn run_collectors(
             "audit" => audit_result.status.clone_from(&output.status),
             "hack" => hack_result.status.clone_from(&output.status),
             "mutants" => mutants_result.status.clone_from(&output.status),
-            "duplicates" => duplicates_result.status.clone_from(&output.status),
-            "loc" => loc_result.status.clone_from(&output.status),
+            "duplicates" => {
+                if let Ok(details) = serde_json::from_str::<serde_json::Value>(&output.stdout) {
+                    duplicates_result.total_lines =
+                        details["totalLines"].as_u64().unwrap_or(0) as u32;
+                    duplicates_result.duplicate_lines =
+                        details["duplicateLines"].as_u64().unwrap_or(0) as u32;
+                    duplicates_result.files_with_duplicates =
+                        details["filesWithDuplicates"].as_u64().unwrap_or(0) as u32;
+                }
+                duplicates_result.status.clone_from(&output.status);
+            }
+            "loc" => {
+                if let Ok(details) = serde_json::from_str::<serde_json::Value>(&output.stdout) {
+                    loc_result.total_lines = details["totalLines"].as_u64().unwrap_or(0) as u32;
+                    loc_result.code_lines = details["codeLines"].as_u64().unwrap_or(0) as u32;
+                    loc_result.comment_lines = details["commentLines"].as_u64().unwrap_or(0) as u32;
+                    loc_result.blank_lines = details["blankLines"].as_u64().unwrap_or(0) as u32;
+                    loc_result.long_lines = details["longLines"].as_u64().unwrap_or(0) as u32;
+                    loc_result.max_line_length_found =
+                        details["maxLineLengthFound"].as_u64().unwrap_or(0) as usize;
+                    loc_result.files = details["files"].as_u64().unwrap_or(0) as u32;
+                }
+                loc_result.status.clone_from(&output.status);
+            }
             "size" => {
                 if let Ok(details) = serde_json::from_str::<serde_json::Value>(&output.stdout) {
                     size_result.files = details["files"].as_u64().unwrap_or(0) as u32;
@@ -590,6 +615,35 @@ fn print_human_summary(summary: &MetricsSummary) {
             c.mutants.mutation_score * 100.0,
             c.mutants.caught,
             c.mutants.missed
+        ),
+    );
+    print!("  duplicates ");
+    print_status(
+        &c.duplicates.status,
+        &format!(
+            "({} total, {} dup)",
+            c.duplicates.total_lines, c.duplicates.duplicate_lines
+        ),
+    );
+    print!("  loc        ");
+    print_status(
+        &c.loc.status,
+        &format!("({} lines, {} files)", c.loc.total_lines, c.loc.files),
+    );
+    print!("  size       ");
+    print_status(
+        &c.size.status,
+        &format!(
+            "({} files, {} max lines)",
+            c.size.files, c.size.max_lines_per_file
+        ),
+    );
+    print!("  complexity ");
+    print_status(
+        &c.complexity.status,
+        &format!(
+            "({} funcs, {} max cc)",
+            c.complexity.functions, c.complexity.max_cyclomatic_complexity
         ),
     );
 }

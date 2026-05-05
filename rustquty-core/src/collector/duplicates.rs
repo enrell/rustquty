@@ -7,6 +7,7 @@ use super::{Collector, CollectorError, CollectorOutput};
 use crate::context::Context;
 use std::collections::HashMap;
 use std::fs;
+use walkdir::WalkDir;
 
 pub struct DuplicatesCollector;
 
@@ -38,28 +39,32 @@ impl Collector for DuplicatesCollector {
         let mut line_counts: HashMap<String, u32> = HashMap::new();
         let mut file_lines: HashMap<String, Vec<String>> = HashMap::new();
 
-        // Walk all Rust files
-        if let Ok(entries) = fs::read_dir(&ctx.workspace_root) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_file()
-                    && path.extension().is_some_and(|e| e == "rs")
-                    && let Ok(content) = fs::read_to_string(&path)
-                {
-                    let lines: Vec<String> =
-                        content.lines().map(|s| s.trim().to_string()).collect();
-                    total_lines += lines.len() as u32;
+        // Walk all Rust files recursively
+        for entry in WalkDir::new(&ctx.workspace_root)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            if !path.extension().is_some_and(|e| e == "rs") {
+                continue;
+            }
+            let Ok(content) = fs::read_to_string(path) else {
+                continue;
+            };
+            let lines: Vec<String> = content.lines().map(|s| s.trim().to_string()).collect();
+            total_lines += lines.len() as u32;
 
-                    // Count line frequencies
-                    for line in &lines {
-                        if !line.is_empty() && !line.starts_with("//") && !line.starts_with("/*") {
-                            *line_counts.entry(line.clone()).or_insert(0) += 1;
-                        }
-                    }
-
-                    file_lines.insert(path.to_string_lossy().to_string(), lines);
+            // Count line frequencies
+            for line in &lines {
+                if !line.is_empty() && !line.starts_with("//") && !line.starts_with("/*") {
+                    *line_counts.entry(line.clone()).or_insert(0) += 1;
                 }
             }
+
+            file_lines.insert(path.to_string_lossy().to_string(), lines);
         }
 
         // Find lines that appear more than once (potential duplicates)

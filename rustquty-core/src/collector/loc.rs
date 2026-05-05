@@ -3,6 +3,7 @@
 use super::{Collector, CollectorError, CollectorOutput};
 use crate::context::Context;
 use std::fs;
+use walkdir::WalkDir;
 
 pub struct LocCollector {
     max_line_length: usize,
@@ -38,55 +39,61 @@ impl Collector for LocCollector {
         let mut files_with_long_lines: u32 = 0;
         let mut long_line_files: Vec<String> = Vec::new();
 
-        // Walk all Rust files
-        if let Ok(entries) = fs::read_dir(&ctx.workspace_root) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_file() && path.extension().is_some_and(|e| e == "rs") {
-                    files += 1;
+        // Walk all Rust files recursively
+        for entry in WalkDir::new(&ctx.workspace_root)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            if !path.extension().is_some_and(|e| e == "rs") {
+                continue;
+            }
+            let Ok(content) = fs::read_to_string(path) else {
+                continue;
+            };
 
-                    if let Ok(content) = fs::read_to_string(&path) {
-                        let lines: Vec<&str> = content.lines().collect();
-                        total_lines += lines.len() as u32;
+            files += 1;
+            let lines: Vec<&str> = content.lines().collect();
+            total_lines += lines.len() as u32;
 
-                        // Track module/file lines
-                        let file_name = path
-                            .file_name()
-                            .map(|s| s.to_string_lossy().to_string())
-                            .unwrap_or_else(|| "unknown".to_string());
+            // Track module/file lines
+            let file_name = path
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| "unknown".to_string());
 
-                        let mut file_has_long_line = false;
-                        for line in &lines {
-                            let trimmed = line.trim();
-                            let line_len = line.len();
+            let mut file_has_long_line = false;
+            for line in &lines {
+                let trimmed = line.trim();
+                let line_len = line.len();
 
-                            if line_len > max_line_len_found {
-                                max_line_len_found = line_len;
-                            }
-
-                            if line_len > self.max_line_length {
-                                long_lines += 1;
-                                file_has_long_line = true;
-                            }
-
-                            if trimmed.is_empty() {
-                                blank_lines += 1;
-                            } else if trimmed.starts_with("//")
-                                || trimmed.starts_with("/*")
-                                || trimmed.ends_with("*/")
-                            {
-                                comment_lines += 1;
-                            } else {
-                                code_lines += 1;
-                            }
-                        }
-
-                        if file_has_long_line {
-                            files_with_long_lines += 1;
-                            long_line_files.push(file_name);
-                        }
-                    }
+                if line_len > max_line_len_found {
+                    max_line_len_found = line_len;
                 }
+
+                if line_len > self.max_line_length {
+                    long_lines += 1;
+                    file_has_long_line = true;
+                }
+
+                if trimmed.is_empty() {
+                    blank_lines += 1;
+                } else if trimmed.starts_with("//")
+                    || trimmed.starts_with("/*")
+                    || trimmed.ends_with("*/")
+                {
+                    comment_lines += 1;
+                } else {
+                    code_lines += 1;
+                }
+            }
+
+            if file_has_long_line {
+                files_with_long_lines += 1;
+                long_line_files.push(file_name);
             }
         }
 

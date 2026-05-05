@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-05-05
+
+### Fixed
+
+- **Recursive file scanning**: Built-in collectors (`duplicates`, `loc`, `size`, `complexity`) now recursively scan member crate directories instead of only the workspace root. Fixes all-zeros metrics when source files are in subdirectories.
+- **Rust edition detection**: Added support for `[workspace.package]` section in Cargo.toml (used by many Rust 2024 projects). Previously only detected edition from `[package]` section.
+- **Human-readable output**: Added missing built-in collectors (duplicates, loc, size, complexity) to the terminal output.
+- **Metrics JSON parsing**: Fixed `duplicates` and `loc` collectors so their full metrics (not just status) are properly parsed and included in the JSON output.
+
 ## [0.3.0] - 2026-05-04
 
 ### Added

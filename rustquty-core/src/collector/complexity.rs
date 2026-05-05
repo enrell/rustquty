@@ -6,6 +6,7 @@ use crate::context::Context;
 use std::fs;
 use std::path::Path;
 use syn::visit::Visit;
+use walkdir::WalkDir;
 
 /// A detected function with complexity metrics.
 #[derive(Debug, Clone)]
@@ -241,24 +242,26 @@ impl ComplexityCollector {
         let mut max_cyclomatic: u32 = 0;
         let mut max_nesting: u32 = 0;
 
-        if let Ok(entries) = fs::read_dir(&ctx.workspace_root) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_file() && path.extension().is_some_and(|e| e == "rs") {
-                    if let Ok(content) = fs::read_to_string(&path) {
-                        let funcs = extract_complexity(&content, &path);
-                        for func in funcs {
-                            if func.cyclomatic_complexity > max_cyclomatic {
-                                max_cyclomatic = func.cyclomatic_complexity;
-                            }
-                            if func.nesting_depth > max_nesting {
-                                max_nesting = func.nesting_depth;
-                            }
+        for entry in WalkDir::new(&ctx.workspace_root)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            let path = entry.path();
+            if path.is_file() && path.extension().is_some_and(|e| e == "rs") {
+                if let Ok(content) = fs::read_to_string(&path) {
+                    let funcs = extract_complexity(&content, &path);
+                    for func in funcs {
+                        if func.cyclomatic_complexity > max_cyclomatic {
+                            max_cyclomatic = func.cyclomatic_complexity;
+                        }
+                        if func.nesting_depth > max_nesting {
+                            max_nesting = func.nesting_depth;
+                        }
 
-                            if let Some(max) = self.config.max_cyclomatic_per_function
-                                && func.cyclomatic_complexity > max
-                            {
-                                violations.push(ComplexityViolation {
+                        if let Some(max) = self.config.max_cyclomatic_per_function
+                            && func.cyclomatic_complexity > max
+                        {
+                            violations.push(ComplexityViolation {
                                     rule_id: "complexity:max-cyclomatic-per-function"
                                         .to_string(),
                                     file: func.file.clone(),
@@ -272,27 +275,26 @@ impl ComplexityCollector {
                                     threshold: max,
                                     severity: "major".to_string(),
                                 });
-                            }
-                            if let Some(max) = self.config.max_nesting_depth
-                                && func.nesting_depth > max
-                            {
-                                violations.push(ComplexityViolation {
-                                    rule_id: "complexity:max-nesting-depth".to_string(),
-                                    file: func.file.clone(),
-                                    line: func.start_line,
-                                    function: Some(func.name.clone()),
-                                    message: format!(
-                                        "Function `{}` has nesting depth {}; maximum allowed is {}",
-                                        func.name, func.nesting_depth, max
-                                    ),
-                                    actual: func.nesting_depth,
-                                    threshold: max,
-                                    severity: "major".to_string(),
-                                });
-                            }
-
-                            all_functions.push(func);
                         }
+                        if let Some(max) = self.config.max_nesting_depth
+                            && func.nesting_depth > max
+                        {
+                            violations.push(ComplexityViolation {
+                                rule_id: "complexity:max-nesting-depth".to_string(),
+                                file: func.file.clone(),
+                                line: func.start_line,
+                                function: Some(func.name.clone()),
+                                message: format!(
+                                    "Function `{}` has nesting depth {}; maximum allowed is {}",
+                                    func.name, func.nesting_depth, max
+                                ),
+                                actual: func.nesting_depth,
+                                threshold: max,
+                                severity: "major".to_string(),
+                            });
+                        }
+
+                        all_functions.push(func);
                     }
                 }
             }
