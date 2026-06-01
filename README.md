@@ -5,11 +5,14 @@ Local-first quality scanner for Rust projects.
 ## Features
 
 - **12 Quality Collectors**: fmt, clippy, tests, coverage, deny, audit, hack, mutants, duplicates, loc, size, complexity
+- **Absolute Thresholds (SonarQube standards)**: Industry-standard defaults for complexity, size, coverage, and more via `[gate.defaults]`
+- **Verbose Violation Output**: `--verbose` flag shows `file:line` details for each violation
 - **Line Length Enforcement**: Detects lines exceeding max line length (default 120 chars)
 - **Code Duplication Detection**: Finds duplicate lines across Rust source files
 - **Per-file & Per-function Size Metrics**: Lines, code lines, function parameter counts via AST analysis
 - **Profile-based Scanning**: fast (fmt+clippy), full (all except mutants), deep (all)
 - **Baseline Comparison**: Compare current metrics against established baselines
+- **Ratchet Model**: Thresholds auto-set from current metrics; gate fails if quality degrades
 - **CI/CD Ready**: GitHub Actions integration with artifact upload on failure
 - **Local-first**: No network I/O at runtime; all calls go to local Cargo subcommands
 
@@ -74,6 +77,8 @@ Options:
           Quality scan profile: fast (fmt+clippy), full (all except mutants), deep (all) [default: full]
       --json
           Output JSON to stdout instead of human-readable format
+  -v, --verbose
+          Show detailed violations with file:line info
       --disable-collector <DISABLE_COLLECTOR>
           Disable a specific collector (can be specified multiple times)
   -h, --help
@@ -94,7 +99,7 @@ default = "full"
 mutants = false
 
 [gate.coverage]
-min_line_percent = 80.0
+min-line-percent = 80.0
 
 [gate.size]
 max-lines-per-file = 500
@@ -109,6 +114,24 @@ max-nesting-depth = 5
 [output]
 dir = "quality"
 ```
+
+### Absolute Thresholds (SonarQube Standards)
+
+Use `[gate.defaults]` for industry-standard absolute thresholds that override the ratchet model:
+
+```toml
+[gate.defaults]
+max-cyclomatic-per-function = 15   # SonarQube default
+max-nesting-depth = 5              # Detekt/ReSharper default
+max-lines-per-function = 80        # SonarQube default
+max-lines-per-file = 1000          # SonarQube default
+max-parameters-per-function = 7    # SonarQube default
+min-coverage-percent = 80.0        # SonarQube default
+max-clippy-warnings = 0
+max-line-length = 120
+```
+
+When a `[gate.defaults]` field is set, it takes precedence over the baseline ratchet value for that metric. Omit fields to use the baseline instead.
 
 Precedence: CLI flags > rustquty.toml > built-in defaults
 

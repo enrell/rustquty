@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-06-01
+
+### Added
+
+- **Absolute thresholds (SonarQube standards)**: New `[gate.defaults]` section in `rustquty.toml` for industry-standard absolute thresholds. Overrides the ratchet baseline model when set. Based on SonarQube, ESLint, Detekt, and DeepSource defaults.
+- **`--verbose` / `-v` flag**: Shows detailed violations with `file:line` info for size, complexity, and loc violations.
+- **`GateConfig` API**: `Gate::run_with_config()` allows passing absolute thresholds programmatically.
+- **`execute_collectors` + `assemble_results`**: New public API in `rustquty-core` for running collectors and assembling results separately.
+- **Config error warnings**: `rustquty.toml` parse errors now print a warning to stderr instead of being silently ignored.
+- **Invalid collector name warnings**: `--disable-collector` with an unknown name now warns instead of silently ignoring.
+
+### Changed
+
+- **Collector data propagation**: All 6 external collectors (coverage, deny, audit, tests, hack, clippy) now propagate their parsed metrics to the JSON output instead of discarding them.
+- **`run_collectors` consolidated**: The duplicated `run_collectors` logic between core and CLI has been consolidated. The CLI now delegates to the core's `execute_collectors` + `assemble_results`.
+- **`Gate::run` refactored**: Reduced from ~270 lines to ~120 lines using macros for repetitive check patterns.
+- **`all_collectors` consolidated**: 4 variants of `all_collectors*()` replaced with a single `all_collectors(size_config, complexity_config)` function.
+- **`chrono_now` centralized**: Time utility functions moved to `rustquty-core/src/util.rs`, eliminating 4 copies (~240 lines).
+- **Structs deduplicated**: `SizeCollectorConfig` and `ComplexityCollectorConfig` removed; reuses `SizeConfig` and `ComplexityConfig` from config.rs.
+- **CLI version**: Uses `#[command(version)]` from clap instead of hardcoded string.
+- **Variable naming**: `t` renamed to `thresholds` in gate.rs for clarity.
+
+### Fixed
+
+- **Block comment tracking**: LOC and size collectors now correctly track `/* ... */` block comment state. Interior lines were previously misclassified as code.
+- **ISO-8601 timestamps**: `generated_at` and `created_at` fields now use ISO-8601 format (`YYYY-MM-DDTHH:MM:SSZ`) instead of raw Unix timestamps.
+- **Doctor version**: `rustquty doctor` now shows the actual version instead of hardcoded "0.1.0".
+- **Report display**: `print_human_report` now shows actual report data instead of hardcoded placeholder values.
+- **Size/complexity violations**: Violations from size and complexity collectors are now properly parsed and included in the MetricsSummary.
+
+### Removed
+
+- **Dead code**: Removed unused `end_line` field from `FunctionInfo` struct.
+- **Duplicated code**: Removed ~750 lines of duplicated logic across modules.
+
 ## [0.3.1] - 2026-05-05
 
 ### Fixed
@@ -125,3 +160,5 @@ max-nesting-depth = 5             # Optional
 [0.1.0]: https://github.com/enrell/rustquty/releases/tag/v0.1.0
 [0.2.0]: https://github.com/enrell/rustquty/releases/tag/v0.2.0
 [0.3.0]: https://github.com/enrell/rustquty/releases/tag/v0.3.0
+[0.3.1]: https://github.com/enrell/rustquty/releases/tag/v0.3.1
+[0.4.0]: https://github.com/enrell/rustquty/releases/tag/v0.4.0
