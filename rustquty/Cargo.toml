@@ -4,7 +4,8 @@ version = "0.4.0"
 edition = "2024"
 description = "Local-first quality scanner for Rust projects"
 license = "MIT"
-repository = "https://github.com/rustquty/rustquty"
+repository = "https://github.com/enrell/rustquty"
+readme = "../README.md"
 keywords = ["quality", "clippy", "fmt", "coverage", "testing"]
 categories = ["command-line-utilities", "development-tools"]
 
