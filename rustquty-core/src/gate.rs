@@ -4,17 +4,45 @@ use crate::schema::{
     Baseline, GateResult, MetricsSummary, QualityReport, ReportSummary, Violation,
 };
 
+/// Absolute thresholds that override baseline values when set.
+/// Based on industry standards (SonarQube, ESLint, DeepSource).
+#[derive(Debug, Clone, Default)]
+pub struct GateConfig {
+    pub max_cyclomatic_per_function: Option<u32>,
+    pub max_nesting_depth: Option<u32>,
+    pub max_lines_per_function: Option<u32>,
+    pub max_lines_per_file: Option<u32>,
+    pub max_code_lines_per_file: Option<u32>,
+    pub max_parameters_per_function: Option<u32>,
+    pub min_coverage_percent: Option<f64>,
+    pub max_duplicate_lines: Option<u32>,
+    pub max_clippy_warnings: Option<u32>,
+    pub max_line_length: Option<usize>,
+}
+
 pub struct Gate;
 
 impl Gate {
     /// Compare a metrics summary against a baseline and produce a quality report.
     pub fn run(summary: &MetricsSummary, baseline: &Baseline) -> QualityReport {
+        Self::run_with_config(summary, baseline, None)
+    }
+
+    /// Compare metrics against baseline with optional absolute thresholds.
+    /// When `config` is provided, absolute values override baseline ratchet values.
+    pub fn run_with_config(
+        summary: &MetricsSummary,
+        baseline: &Baseline,
+        config: Option<&GateConfig>,
+    ) -> QualityReport {
         let mut violations = Vec::new();
         let mut collectors_passed = 0u32;
         let mut collectors_failed = 0u32;
         let mut collectors_skipped = 0u32;
 
         let thresholds = &baseline.thresholds;
+        let default_cfg = GateConfig::default();
+        let cfg = config.unwrap_or(&default_cfg);
 
         macro_rules! check_pass {
             ($pass:expr, $collector:expr, $metric:expr, $baseline_val:expr, $current_val:expr, $msg:expr) => {
@@ -58,13 +86,14 @@ impl Gate {
         // Fmt
         check_status!(summary.collectors.fmt.status, "fmt", thresholds.fmt.must_pass);
 
-        // Clippy
+        // Clippy — use absolute if set, otherwise baseline
+        let clippy_max = cfg.max_clippy_warnings.unwrap_or(thresholds.clippy.max_warnings);
         check_pass!(
-            summary.collectors.clippy.warning_count <= thresholds.clippy.max_warnings,
+            summary.collectors.clippy.warning_count <= clippy_max,
             "clippy", "warning_count",
-            serde_json::json!(thresholds.clippy.max_warnings),
+            serde_json::json!(clippy_max),
             serde_json::json!(summary.collectors.clippy.warning_count),
-            format!("clippy warnings ({}) exceed max allowed ({})", summary.collectors.clippy.warning_count, thresholds.clippy.max_warnings)
+            format!("clippy warnings ({}) exceed max allowed ({})", summary.collectors.clippy.warning_count, clippy_max)
         );
 
         // Tests
@@ -76,13 +105,14 @@ impl Gate {
             format!("test failures ({}) exceed max allowed ({})", summary.collectors.tests.failed, thresholds.tests.max_failures)
         );
 
-        // Coverage
+        // Coverage — use absolute if set, otherwise baseline
+        let coverage_min = cfg.min_coverage_percent.unwrap_or(thresholds.coverage.min_line_percent);
         check_pass!(
-            summary.collectors.coverage.line_percent >= thresholds.coverage.min_line_percent,
+            summary.collectors.coverage.line_percent >= coverage_min,
             "coverage", "line_percent",
-            serde_json::json!(thresholds.coverage.min_line_percent),
+            serde_json::json!(coverage_min),
             serde_json::json!(summary.collectors.coverage.line_percent),
-            format!("coverage ({:.1}%) below minimum ({:.1}%)", summary.collectors.coverage.line_percent, thresholds.coverage.min_line_percent)
+            format!("coverage ({:.1}%) below minimum ({:.1}%)", summary.collectors.coverage.line_percent, coverage_min)
         );
 
         // Deny
@@ -117,29 +147,40 @@ impl Gate {
             format!("mutation score ({:.2}) below minimum ({:.2})", summary.collectors.mutants.mutation_score, thresholds.mutants.min_score)
         );
 
-        // Duplicates
+        // Duplicates — use absolute if set, otherwise baseline
+        let dup_max = cfg.max_duplicate_lines.unwrap_or(thresholds.duplicates.max_duplicate_lines);
         check_pass!(
-            summary.collectors.duplicates.duplicate_lines <= thresholds.duplicates.max_duplicate_lines,
+            summary.collectors.duplicates.duplicate_lines <= dup_max,
             "duplicates", "duplicate_lines",
-            serde_json::json!(thresholds.duplicates.max_duplicate_lines),
+            serde_json::json!(dup_max),
             serde_json::json!(summary.collectors.duplicates.duplicate_lines),
-            format!("duplicate lines ({}) exceed maximum ({})", summary.collectors.duplicates.duplicate_lines, thresholds.duplicates.max_duplicate_lines)
+            format!("duplicate lines ({}) exceed maximum ({})", summary.collectors.duplicates.duplicate_lines, dup_max)
         );
 
-        // LOC
+        // LOC — use absolute max_line_length if set
+        let line_len_max = cfg.max_line_length.unwrap_or(thresholds.loc.max_line_length);
         check_pass!(
             summary.collectors.loc.long_lines == 0,
             "loc", "long_lines",
             serde_json::json!(0),
             serde_json::json!(summary.collectors.loc.long_lines),
-            format!("{} lines exceed max length ({})", summary.collectors.loc.long_lines, thresholds.loc.max_line_length)
+            format!("{} lines exceed max length ({})", summary.collectors.loc.long_lines, line_len_max)
         );
 
-        // Size
-        let size_has_thresholds = thresholds.size.max_lines_per_file.is_some()
-            || thresholds.size.max_code_lines_per_file.is_some()
-            || thresholds.size.max_lines_per_function.is_some()
-            || thresholds.size.max_parameters_per_function.is_some();
+        // Size — merge absolute config with baseline
+        let size_max_lines_per_file = cfg.max_lines_per_file
+            .or(thresholds.size.max_lines_per_file);
+        let size_max_code_lines_per_file = cfg.max_code_lines_per_file
+            .or(thresholds.size.max_code_lines_per_file);
+        let size_max_lines_per_function = cfg.max_lines_per_function
+            .or(thresholds.size.max_lines_per_function);
+        let size_max_params = cfg.max_parameters_per_function
+            .or(thresholds.size.max_parameters_per_function);
+
+        let size_has_thresholds = size_max_lines_per_file.is_some()
+            || size_max_code_lines_per_file.is_some()
+            || size_max_lines_per_function.is_some()
+            || size_max_params.is_some();
         check_pass!(
             !size_has_thresholds || summary.collectors.size.violations.is_empty(),
             "size", "violations",
@@ -148,9 +189,14 @@ impl Gate {
             format!("{} size violation(s) detected", summary.collectors.size.violations.len())
         );
 
-        // Complexity
-        let complexity_has_thresholds = thresholds.complexity.max_cyclomatic_per_function.is_some()
-            || thresholds.complexity.max_nesting_depth.is_some();
+        // Complexity — merge absolute config with baseline
+        let complexity_max_cc = cfg.max_cyclomatic_per_function
+            .or(thresholds.complexity.max_cyclomatic_per_function);
+        let complexity_max_depth = cfg.max_nesting_depth
+            .or(thresholds.complexity.max_nesting_depth);
+
+        let complexity_has_thresholds = complexity_max_cc.is_some()
+            || complexity_max_depth.is_some();
         check_pass!(
             !complexity_has_thresholds || summary.collectors.complexity.violations.is_empty(),
             "complexity", "violations",
@@ -611,5 +657,146 @@ mod tests {
                 v.collector
             );
         }
+    }
+
+    // --- Absolute threshold (GateConfig) tests ---
+
+    #[test]
+    fn test_gate_config_clippy_override() {
+        // Baseline allows 10 warnings, but config overrides to 0
+        let summary = make_summary(
+            CollectorStatus::Pass,
+            5,
+            0,
+            90.0,
+            0,
+            0,
+            0,
+            0,
+            CollectorStatus::Pass,
+            0.9,
+        );
+        let baseline = make_baseline(
+            true, 10, 0, 80.0, 0, 0, 0, 0, true, 0.8, 100, 120, None, None, None, None,
+        );
+        let config = GateConfig {
+            max_clippy_warnings: Some(0),
+            ..Default::default()
+        };
+        let report = Gate::run_with_config(&summary, &baseline, Some(&config));
+        assert!(matches!(report.gate_result, GateResult::Fail));
+        assert!(report.violations.iter().any(|v| v.collector == "clippy"));
+    }
+
+    #[test]
+    fn test_gate_config_coverage_override() {
+        // Baseline allows 50%, but config requires 80%
+        let summary = make_summary(
+            CollectorStatus::Pass,
+            0,
+            0,
+            60.0,
+            0,
+            0,
+            0,
+            0,
+            CollectorStatus::Pass,
+            0.9,
+        );
+        let baseline = make_baseline(
+            true, 0, 0, 50.0, 0, 0, 0, 0, true, 0.8, 100, 120, None, None, None, None,
+        );
+        let config = GateConfig {
+            min_coverage_percent: Some(80.0),
+            ..Default::default()
+        };
+        let report = Gate::run_with_config(&summary, &baseline, Some(&config));
+        assert!(matches!(report.gate_result, GateResult::Fail));
+        assert!(report.violations.iter().any(|v| v.collector == "coverage"));
+    }
+
+    #[test]
+    fn test_gate_config_passes_when_within_absolute_thresholds() {
+        let summary = make_summary(
+            CollectorStatus::Pass,
+            0,
+            0,
+            85.0,
+            0,
+            0,
+            0,
+            0,
+            CollectorStatus::Pass,
+            0.9,
+        );
+        let baseline = make_baseline(
+            true, 0, 0, 80.0, 0, 0, 0, 0, true, 0.8, 100, 120, None, None, None, None,
+        );
+        let config = GateConfig {
+            max_clippy_warnings: Some(0),
+            min_coverage_percent: Some(80.0),
+            max_lines_per_function: Some(80),
+            max_nesting_depth: Some(5),
+            ..Default::default()
+        };
+        let report = Gate::run_with_config(&summary, &baseline, Some(&config));
+        assert!(matches!(report.gate_result, GateResult::Pass));
+    }
+
+    #[test]
+    fn test_gate_config_none_falls_back_to_baseline() {
+        // Without config, baseline ratchet model is used
+        let summary = make_summary(
+            CollectorStatus::Pass,
+            3,
+            0,
+            90.0,
+            0,
+            0,
+            0,
+            0,
+            CollectorStatus::Pass,
+            0.9,
+        );
+        let baseline = make_baseline(
+            true, 5, 0, 80.0, 0, 0, 0, 0, true, 0.8, 100, 120, None, None, None, None,
+        );
+        // No config — should pass because 3 <= 5 (baseline)
+        let report = Gate::run_with_config(&summary, &baseline, None);
+        assert!(matches!(report.gate_result, GateResult::Pass));
+    }
+
+    #[test]
+    fn test_gate_config_sonarqube_defaults() {
+        // Simulate SonarQube-like absolute thresholds
+        let summary = make_summary(
+            CollectorStatus::Pass,
+            0,
+            0,
+            85.0,
+            0,
+            0,
+            0,
+            0,
+            CollectorStatus::Pass,
+            0.9,
+        );
+        let baseline = make_baseline(
+            true, 0, 0, 80.0, 0, 0, 0, 0, true, 0.8, 100, 120, None, None, None, None,
+        );
+        let config = GateConfig {
+            max_cyclomatic_per_function: Some(15),
+            max_nesting_depth: Some(5),
+            max_lines_per_function: Some(80),
+            max_lines_per_file: Some(1000),
+            max_code_lines_per_file: Some(700),
+            max_parameters_per_function: Some(7),
+            min_coverage_percent: Some(80.0),
+            max_clippy_warnings: Some(0),
+            max_line_length: Some(120),
+            ..Default::default()
+        };
+        let report = Gate::run_with_config(&summary, &baseline, Some(&config));
+        assert!(matches!(report.gate_result, GateResult::Pass));
     }
 }

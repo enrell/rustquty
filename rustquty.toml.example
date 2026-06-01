@@ -18,12 +18,6 @@ default = "full"
 [gate.coverage]
 min_line_percent = 80.0
 
-[gate.clippy]
-max_warnings = 0
-
-[gate.tests]
-max_failures = 0
-
 [gate.size]
 # Maximum total lines per file (optional, omit to skip this rule)
 max_lines_per_file = 1000
@@ -33,6 +27,31 @@ max_code_lines_per_file = 700
 max_lines_per_function = 80
 # Maximum parameters per function
 max_parameters_per_function = 6
+
+# Absolute thresholds based on industry standards (SonarQube, ESLint, DeepSource).
+# When set, these override the ratchet baseline for the specified metric.
+# Omit any field to use the baseline value instead.
+[gate.defaults]
+# SonarQube default: 15, DeepSource/Detekt default: 10
+max_cyclomatic_per_function = 15
+# ESLint default: 4, Detekt/ReSharper default: 5
+max_nesting_depth = 5
+# SonarQube default: 80, ESLint: 50, Detekt: 60
+max_lines_per_function = 80
+# SonarQube default: 1000
+max_lines_per_file = 1000
+# Maximum code lines per file (non-comment, non-blank)
+max_code_lines_per_file = 700
+# SonarQube default: 7, Detekt: 6, ESLint: 3
+max_parameters_per_function = 7
+# SonarQube default: 80.0%
+min_coverage_percent = 80.0
+# SonarQube default: 3% of new code (set as absolute line count)
+# max_duplicate_lines = 100
+# Maximum clippy warnings (0 = no warnings allowed)
+max_clippy_warnings = 0
+# ESLint default: 80, rustfmt default: 120
+max_line_length = 120
 
 [output]
 # Override default quality/ output directory

@@ -166,6 +166,22 @@ fn main() -> Result<()> {
     let size_config = config.as_ref().and_then(|c| c.gate.size.clone());
     let complexity_config = config.as_ref().and_then(|c| c.gate.complexity.clone());
 
+    // Build GateConfig from [gate.defaults] in TOML (absolute thresholds).
+    let gate_config = config.as_ref().and_then(|c| {
+        c.gate.defaults.as_ref().map(|d| rustquty_core::gate::GateConfig {
+            max_cyclomatic_per_function: d.max_cyclomatic_per_function,
+            max_nesting_depth: d.max_nesting_depth,
+            max_lines_per_function: d.max_lines_per_function,
+            max_lines_per_file: d.max_lines_per_file,
+            max_code_lines_per_file: d.max_code_lines_per_file,
+            max_parameters_per_function: d.max_parameters_per_function,
+            min_coverage_percent: d.min_coverage_percent,
+            max_duplicate_lines: d.max_duplicate_lines,
+            max_clippy_warnings: d.max_clippy_warnings,
+            max_line_length: d.max_line_length,
+        })
+    });
+
     // Build context with CLI overrides
     let mut ctx = Context::new(project_dir.clone())
         .with_profile(profile)
@@ -217,7 +233,7 @@ fn main() -> Result<()> {
             let baseline: rustquty_core::schema::Baseline =
                 serde_json::from_str(&std::fs::read_to_string(&baseline_path)?)?;
 
-            let report = Gate::run(&summary, &baseline);
+            let report = Gate::run_with_config(&summary, &baseline, gate_config.as_ref());
             let json = serde_json::to_string_pretty(&report)?;
             let path = output_dir.join("qualityReport.json");
             std::fs::write(&path, &json)?;
@@ -246,7 +262,7 @@ fn main() -> Result<()> {
             let baseline: rustquty_core::schema::Baseline =
                 serde_json::from_str(&std::fs::read_to_string(&baseline_path)?)?;
 
-            let report = Gate::run(&summary, &baseline);
+            let report = Gate::run_with_config(&summary, &baseline, gate_config.as_ref());
             let report_json = serde_json::to_string_pretty(&report)?;
             std::fs::write(output_dir.join("qualityReport.json"), &report_json)?;
 

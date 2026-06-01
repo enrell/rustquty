@@ -59,12 +59,51 @@ pub struct ConfigGate {
     pub size: Option<SizeConfig>,
     #[serde(default)]
     pub complexity: Option<ComplexityConfig>,
+    #[serde(default)]
+    pub defaults: Option<ConfigGateDefaults>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ConfigGateCoverage {
     #[serde(default)]
     pub min_line_percent: Option<f64>,
+}
+
+/// Absolute thresholds based on industry standards (SonarQube, ESLint, DeepSource).
+/// When present, these override the ratchet model for the specified metrics.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub struct ConfigGateDefaults {
+    /// Maximum cyclomatic complexity per function (SonarQube default: 15, DeepSource: 10).
+    #[serde(default)]
+    pub max_cyclomatic_per_function: Option<u32>,
+    /// Maximum nesting depth per function (ESLint default: 4, Detekt/ReSharper: 5).
+    #[serde(default)]
+    pub max_nesting_depth: Option<u32>,
+    /// Maximum lines per function (SonarQube default: 80, ESLint: 50, Detekt: 60).
+    #[serde(default)]
+    pub max_lines_per_function: Option<u32>,
+    /// Maximum lines per file (SonarQube default: 1000).
+    #[serde(default)]
+    pub max_lines_per_file: Option<u32>,
+    /// Maximum code lines per file (non-comment, non-blank).
+    #[serde(default)]
+    pub max_code_lines_per_file: Option<u32>,
+    /// Maximum parameters per function (SonarQube default: 7, Detekt: 6, ESLint: 3).
+    #[serde(default)]
+    pub max_parameters_per_function: Option<u32>,
+    /// Minimum line coverage percent (SonarQube default: 80.0).
+    #[serde(default)]
+    pub min_coverage_percent: Option<f64>,
+    /// Maximum duplicate lines (SonarQube default: 3% of new code).
+    #[serde(default)]
+    pub max_duplicate_lines: Option<u32>,
+    /// Maximum clippy warnings.
+    #[serde(default)]
+    pub max_clippy_warnings: Option<u32>,
+    /// Maximum line length in characters (ESLint default: 80, rustfmt default: 120).
+    #[serde(default)]
+    pub max_line_length: Option<usize>,
 }
 
 /// Configuration for the size gate, loaded from [gate.size] in TOML.
