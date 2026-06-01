@@ -379,4 +379,79 @@ mod collector_tests {
         assert_eq!(mock.name(), "test");
         assert!(mock.is_available());
     }
+
+    // --- Regression tests: ISO-8601 timestamps ---
+
+    #[test]
+    fn test_chrono_now_returns_iso8601() {
+        let ts = chrono_now();
+        // Must match YYYY-MM-DDTHH:MM:SSZ
+        assert!(
+            ts.ends_with('Z'),
+            "Timestamp should end with Z: {}",
+            ts
+        );
+        assert_eq!(ts.len(), 20, "Timestamp should be 20 chars: {}", ts);
+        assert_eq!(&ts[4..5], "-");
+        assert_eq!(&ts[7..8], "-");
+        assert_eq!(&ts[10..11], "T");
+        assert_eq!(&ts[13..14], ":");
+        assert_eq!(&ts[16..17], ":");
+    }
+
+    #[test]
+    fn test_chrono_now_year_is_reasonable() {
+        let ts = chrono_now();
+        let year: u32 = ts[..4].parse().unwrap();
+        assert!(
+            (2025..=2100).contains(&year),
+            "Year should be reasonable: {}",
+            year
+        );
+    }
+
+    #[test]
+    fn test_unix_to_datetime_known_value() {
+        // 2024-01-01T00:00:00Z = 1704067200
+        let (y, m, d, h, min, s) = unix_to_datetime(1704067200);
+        assert_eq!(y, 2024);
+        assert_eq!(m, 1);
+        assert_eq!(d, 1);
+        assert_eq!(h, 0);
+        assert_eq!(min, 0);
+        assert_eq!(s, 0);
+    }
+
+    #[test]
+    fn test_unix_to_datetime_epoch() {
+        // 1970-01-01T00:00:00Z = 0
+        let (y, m, d, h, min, s) = unix_to_datetime(0);
+        assert_eq!(y, 1970);
+        assert_eq!(m, 1);
+        assert_eq!(d, 1);
+        assert_eq!(h, 0);
+        assert_eq!(min, 0);
+        assert_eq!(s, 0);
+    }
+
+    #[test]
+    fn test_unix_to_datetime_with_time() {
+        // 2024-06-15T11:30:45Z = 1718451045
+        let (y, m, d, h, min, s) = unix_to_datetime(1718451045);
+        assert_eq!(y, 2024);
+        assert_eq!(m, 6);
+        assert_eq!(d, 15);
+        assert_eq!(h, 11);
+        assert_eq!(min, 30);
+        assert_eq!(s, 45);
+    }
+
+    #[test]
+    fn test_is_leap_known_years() {
+        assert!(!is_leap(2023));
+        assert!(is_leap(2024));
+        assert!(!is_leap(1900));
+        assert!(is_leap(2000));
+        assert!(!is_leap(2100));
+    }
 }

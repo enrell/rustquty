@@ -436,6 +436,54 @@ mod tests {
         );
     }
 
+    // --- Regression tests ---
+
+    #[test]
+    fn test_size_regression_block_comment_at_eof() {
+        let content = "fn main() {}\n/* comment\n   interior */";
+        assert_eq!(count_code_lines(content), 1);
+    }
+
+    #[test]
+    fn test_size_regression_code_before_and_after_block() {
+        let content = "fn first() {}\n/* block\n   inside\n*/\nfn second() {}";
+        assert_eq!(count_code_lines(content), 2);
+    }
+
+    #[test]
+    fn test_size_regression_empty_block_comment() {
+        let content = "/**/\nfn main() {}";
+        assert_eq!(count_code_lines(content), 1);
+    }
+
+    #[test]
+    fn test_size_regression_multiple_block_comments() {
+        let content = "/* first\n   inside\n*/\nfn main() {}\n/* second\n   inside\n*/";
+        assert_eq!(count_code_lines(content), 1);
+    }
+
+    #[test]
+    fn test_size_regression_block_comment_with_blank_lines() {
+        let content = "/* start\n\n   after blank\n*/\nfn main() {}";
+        assert_eq!(count_code_lines(content), 1);
+    }
+
+    #[test]
+    fn test_size_regression_doc_comments_still_counted() {
+        let content = "/// doc\n//! inner\nfn main() {}";
+        assert_eq!(count_code_lines(content), 1);
+    }
+
+    #[test]
+    fn test_size_regression_block_comment_collector_status() {
+        // Ensure the collector reports Pass when no violations, even with block comments
+        let content = "/* big block\n   line 1\n   line 2\n   line 3\n*/\nfn main() {}";
+        let output = run_on_content(content);
+        assert_eq!(output.status, crate::schema::CollectorStatus::Pass);
+        let details: serde_json::Value = serde_json::from_str(&output.stdout).unwrap();
+        assert_eq!(details["maxCodeLinesPerFile"], 1);
+    }
+
     #[test]
     fn test_collector_reports_total_lines() {
         let content = "fn main() {\n    let x = 1;\n    let y = 2;\n}";

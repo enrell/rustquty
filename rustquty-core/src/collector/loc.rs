@@ -224,12 +224,74 @@ mod tests {
         let comment_lines = details["commentLines"].as_u64().unwrap();
         let code_lines = details["codeLines"].as_u64().unwrap();
 
-        // Expected: 4 comment lines (//, /*, interior, */), 1 code line
-        // Actual (buggy): 3 comment lines (//, /*, */), 2 code lines (fn main, interior)
-        assert_eq!(
-            comment_lines, 4,
-            "Block comment interior should be counted as comments"
-        );
+        assert_eq!(comment_lines, 4, "Block comment interior should be counted as comments");
         assert_eq!(code_lines, 1);
+    }
+
+    // --- Regression tests ---
+
+    #[test]
+    fn test_loc_regression_block_comment_at_eof() {
+        // Block comment that ends at EOF without trailing newline
+        let content = "fn main() {}\n/* comment\n   interior */";
+        let output = run_on_content(content);
+        let details = parse_details(&output);
+        assert_eq!(details["commentLines"].as_u64().unwrap(), 2);
+        assert_eq!(details["codeLines"].as_u64().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_loc_regression_code_before_and_after_block() {
+        let content = "fn first() {}\n/* block\n   inside\n*/\nfn second() {}";
+        let output = run_on_content(content);
+        let details = parse_details(&output);
+        assert_eq!(details["commentLines"].as_u64().unwrap(), 3);
+        assert_eq!(details["codeLines"].as_u64().unwrap(), 2);
+    }
+
+    #[test]
+    fn test_loc_regression_empty_block_comment() {
+        let content = "/**/\nfn main() {}";
+        let output = run_on_content(content);
+        let details = parse_details(&output);
+        assert_eq!(details["commentLines"].as_u64().unwrap(), 1);
+        assert_eq!(details["codeLines"].as_u64().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_loc_regression_single_line_block_with_code() {
+        let content = "let x = 1; /* inline */ let y = 2;";
+        let output = run_on_content(content);
+        let details = parse_details(&output);
+        // The line starts with code, so it's counted as code (inline comment not stripped)
+        assert_eq!(details["codeLines"].as_u64().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_loc_regression_multiple_block_comments() {
+        let content = "/* first\n   inside\n*/\nfn main() {}\n/* second\n   inside\n*/";
+        let output = run_on_content(content);
+        let details = parse_details(&output);
+        assert_eq!(details["commentLines"].as_u64().unwrap(), 6);
+        assert_eq!(details["codeLines"].as_u64().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_loc_regression_blank_lines_not_miscounted() {
+        let content = "/* start\n\n   after blank\n*/\nfn main() {}";
+        let output = run_on_content(content);
+        let details = parse_details(&output);
+        assert_eq!(details["blankLines"].as_u64().unwrap(), 1);
+        assert_eq!(details["commentLines"].as_u64().unwrap(), 3);
+        assert_eq!(details["codeLines"].as_u64().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_loc_regression_doc_comments_counted() {
+        let content = "/// doc\n//! inner\nfn main() {}";
+        let output = run_on_content(content);
+        let details = parse_details(&output);
+        assert_eq!(details["commentLines"].as_u64().unwrap(), 2);
+        assert_eq!(details["codeLines"].as_u64().unwrap(), 1);
     }
 }

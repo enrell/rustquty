@@ -674,4 +674,93 @@ mod tests {
         // Summary has size with violations=0, so it should pass.
         assert!(matches!(report.gate_result, GateResult::Pass));
     }
+
+    // --- Regression tests ---
+
+    #[test]
+    fn test_gate_regression_generated_at_is_iso8601() {
+        let summary = make_summary(
+            CollectorStatus::Pass,
+            0,
+            0,
+            90.0,
+            0,
+            0,
+            0,
+            0,
+            CollectorStatus::Pass,
+            0.9,
+        );
+        let baseline = make_baseline(
+            true, 0, 0, 80.0, 0, 0, 0, 0, true, 0.8, 100, 120, None, None, None, None,
+        );
+        let report = Gate::run(&summary, &baseline);
+        // Must be ISO-8601, not a raw number
+        assert!(
+            report.generated_at.contains('T'),
+            "generated_at should be ISO-8601: {}",
+            report.generated_at
+        );
+        assert!(
+            report.generated_at.ends_with('Z'),
+            "generated_at should end with Z: {}",
+            report.generated_at
+        );
+        assert!(
+            report.generated_at.len() == 20,
+            "generated_at should be 20 chars: {}",
+            report.generated_at
+        );
+    }
+
+    #[test]
+    fn test_gate_regression_summary_counts_correct() {
+        let summary = make_summary(
+            CollectorStatus::Pass,
+            5,
+            0,
+            90.0,
+            0,
+            0,
+            0,
+            0,
+            CollectorStatus::Pass,
+            0.9,
+        );
+        let baseline = make_baseline(
+            true, 0, 0, 80.0, 0, 0, 0, 0, true, 0.8, 100, 120, None, None, None, None,
+        );
+        let report = Gate::run(&summary, &baseline);
+        // clippy fails (5 > 0), others pass
+        assert_eq!(report.summary.collectors_failed, 1);
+        assert_eq!(report.summary.collectors_passed, 11);
+        assert!(report.violations.iter().any(|v| v.collector == "clippy"));
+    }
+
+    #[test]
+    fn test_gate_regression_violation_messages_not_empty() {
+        let summary = make_summary(
+            CollectorStatus::Pass,
+            10,
+            3,
+            50.0,
+            0,
+            0,
+            0,
+            0,
+            CollectorStatus::Pass,
+            0.5,
+        );
+        let baseline = make_baseline(
+            true, 0, 0, 80.0, 0, 0, 0, 0, true, 0.8, 100, 120, None, None, None, None,
+        );
+        let report = Gate::run(&summary, &baseline);
+        for v in &report.violations {
+            assert!(
+                !v.message.is_empty(),
+                "Violation message should not be empty for {}",
+                v.collector
+            );
+        }
+    }
 }
