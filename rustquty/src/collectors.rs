@@ -8,66 +8,7 @@ use rustquty_core::collector::{
 };
 use rustquty_core::config::{ComplexityConfig, SizeConfig};
 
-pub fn all_collectors() -> Vec<Box<dyn Collector>> {
-    vec![
-        Box::new(FmtCollector::new()),
-        Box::new(ClippyCollector::new()),
-        Box::new(TestCollector::new()),
-        Box::new(CoverageCollector::new()),
-        Box::new(DenyCollector::new()),
-        Box::new(AuditCollector::new()),
-        Box::new(HackCollector::new()),
-        Box::new(MutantsCollector::new()),
-        Box::new(DuplicatesCollector::new()),
-        Box::new(LocCollector::new()),
-        Box::new(SizeCollector::new()),
-        Box::new(ComplexityCollector::new()),
-    ]
-}
-
-pub fn all_collectors_with_size_config(size_config: Option<SizeConfig>) -> Vec<Box<dyn Collector>> {
-    vec![
-        Box::new(FmtCollector::new()),
-        Box::new(ClippyCollector::new()),
-        Box::new(TestCollector::new()),
-        Box::new(CoverageCollector::new()),
-        Box::new(DenyCollector::new()),
-        Box::new(AuditCollector::new()),
-        Box::new(HackCollector::new()),
-        Box::new(MutantsCollector::new()),
-        Box::new(DuplicatesCollector::new()),
-        Box::new(LocCollector::new()),
-        Box::new(match size_config {
-            Some(cfg) => SizeCollector::with_config(cfg),
-            None => SizeCollector::new(),
-        }),
-        Box::new(ComplexityCollector::new()),
-    ]
-}
-
-pub fn all_collectors_with_complexity_config(
-    complexity_config: Option<ComplexityConfig>,
-) -> Vec<Box<dyn Collector>> {
-    vec![
-        Box::new(FmtCollector::new()),
-        Box::new(ClippyCollector::new()),
-        Box::new(TestCollector::new()),
-        Box::new(CoverageCollector::new()),
-        Box::new(DenyCollector::new()),
-        Box::new(AuditCollector::new()),
-        Box::new(HackCollector::new()),
-        Box::new(MutantsCollector::new()),
-        Box::new(DuplicatesCollector::new()),
-        Box::new(LocCollector::new()),
-        Box::new(SizeCollector::new()),
-        Box::new(match complexity_config {
-            Some(cfg) => ComplexityCollector::with_config(cfg),
-            None => ComplexityCollector::new(),
-        }),
-    ]
-}
-
-pub fn all_collectors_with_size_and_complexity_config(
+pub fn all_collectors(
     size_config: Option<SizeConfig>,
     complexity_config: Option<ComplexityConfig>,
 ) -> Vec<Box<dyn Collector>> {

@@ -273,7 +273,7 @@ fn main() -> Result<()> {
         }
 
         Commands::Doctor => {
-            let all = collectors::all_collectors();
+            let all = collectors::all_collectors(None, None);
             println!("rustquty {} — collector availability\n", env!("CARGO_PKG_VERSION"));
             for col in all {
                 let available = col.is_available();
@@ -298,15 +298,8 @@ fn run_collectors(
 ) -> Result<MetricsSummary> {
     use rustquty_core::collector::Collector;
 
-    let all: Vec<Box<dyn Collector>> = match (&size_config, &complexity_config) {
-        (Some(cfg), Some(cplx)) => collectors::all_collectors_with_size_and_complexity_config(
-            Some(cfg.clone()),
-            Some(cplx.clone()),
-        ),
-        (Some(cfg), None) => collectors::all_collectors_with_size_config(Some(cfg.clone())),
-        (None, Some(cplx)) => collectors::all_collectors_with_complexity_config(Some(cplx.clone())),
-        (None, None) => collectors::all_collectors(),
-    };
+    let all: Vec<Box<dyn Collector>> =
+        collectors::all_collectors(size_config.clone(), complexity_config.clone());
 
     // Apply profile filtering
     let enabled: Vec<Box<dyn Collector>> = all
