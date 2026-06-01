@@ -16,9 +16,6 @@ struct FunctionInfo {
     file: String,
     /// Starting line number (1-indexed).
     start_line: u32,
-    /// Ending line number (1-indexed).
-    #[allow(dead_code)]
-    end_line: u32,
     /// Total lines in the function (end_line - start_line + 1).
     total_lines: u32,
     /// Number of explicit parameters.
@@ -84,8 +81,7 @@ fn extract_functions(content: &str, file_path: &Path) -> Vec<FunctionInfo> {
             let end_loc = span.end();
 
             let start_line = start_loc.line as u32;
-            let end_line = end_loc.line as u32;
-            let total_lines = end_line.saturating_sub(start_line) + 1;
+            let total_lines = (end_loc.line as u32).saturating_sub(start_line) + 1;
 
             // Count parameters (including self/&self/&mut self).
             let param_count = item_fn.sig.inputs.len();
@@ -94,7 +90,6 @@ fn extract_functions(content: &str, file_path: &Path) -> Vec<FunctionInfo> {
                 name,
                 file: file_stem.clone(),
                 start_line,
-                end_line,
                 total_lines,
                 param_count,
             });
@@ -112,8 +107,7 @@ fn extract_functions(content: &str, file_path: &Path) -> Vec<FunctionInfo> {
                     let end_loc = span.end();
 
                     let start_line = start_loc.line as u32;
-                    let end_line = end_loc.line as u32;
-                    let total_lines = end_line.saturating_sub(start_line) + 1;
+                    let total_lines = (end_loc.line as u32).saturating_sub(start_line) + 1;
 
                     // Count parameters (including self/&self/&mut self).
                     let param_count = item_fn.sig.inputs.len();
@@ -122,7 +116,6 @@ fn extract_functions(content: &str, file_path: &Path) -> Vec<FunctionInfo> {
                         name,
                         file: file_stem.clone(),
                         start_line,
-                        end_line,
                         total_lines,
                         param_count,
                     });
@@ -148,37 +141,21 @@ struct SizeViolation {
     severity: String,
 }
 
-/// Configuration for the size collector (from [gate.size] in TOML).
-#[derive(Debug, Clone, Default)]
-pub struct SizeCollectorConfig {
-    pub max_lines_per_file: Option<u32>,
-    pub max_code_lines_per_file: Option<u32>,
-    pub max_lines_per_function: Option<u32>,
-    pub max_parameters_per_function: Option<u32>,
-}
-
 /// The size collector.
 pub struct SizeCollector {
-    config: SizeCollectorConfig,
+    config: SizeConfig,
 }
 
 impl SizeCollector {
     pub fn new() -> Self {
         Self {
-            config: SizeCollectorConfig::default(),
+            config: SizeConfig::default(),
         }
     }
 
     /// Configure the collector from a SizeConfig (TOML [gate.size] section).
     pub fn with_config(config: SizeConfig) -> Self {
-        Self {
-            config: SizeCollectorConfig {
-                max_lines_per_file: config.max_lines_per_file,
-                max_code_lines_per_file: config.max_code_lines_per_file,
-                max_lines_per_function: config.max_lines_per_function,
-                max_parameters_per_function: config.max_parameters_per_function,
-            },
-        }
+        Self { config }
     }
 
     fn collect_impl(&self, ctx: &Context) -> Result<CollectorOutput, CollectorError> {

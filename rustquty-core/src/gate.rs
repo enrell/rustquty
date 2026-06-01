@@ -14,14 +14,14 @@ impl Gate {
         let mut collectors_failed = 0u32;
         let mut collectors_skipped = 0u32;
 
-        let t = &baseline.thresholds;
+        let thresholds = &baseline.thresholds;
 
         // Fmt
         match summary.collectors.fmt.status {
             crate::schema::CollectorStatus::Pass => collectors_passed += 1,
             crate::schema::CollectorStatus::Fail => {
                 collectors_failed += 1;
-                if t.fmt.must_pass {
+                if thresholds.fmt.must_pass {
                     violations.push(Violation {
                         collector: "fmt".to_string(),
                         metric: "status".to_string(),
@@ -36,7 +36,7 @@ impl Gate {
         }
 
         // Clippy
-        let clippy_pass = summary.collectors.clippy.warning_count <= t.clippy.max_warnings;
+        let clippy_pass = summary.collectors.clippy.warning_count <= thresholds.clippy.max_warnings;
         if clippy_pass {
             collectors_passed += 1;
         } else {
@@ -44,17 +44,17 @@ impl Gate {
             violations.push(Violation {
                 collector: "clippy".to_string(),
                 metric: "warning_count".to_string(),
-                baseline_value: serde_json::json!(t.clippy.max_warnings),
+                baseline_value: serde_json::json!(thresholds.clippy.max_warnings),
                 current_value: serde_json::json!(summary.collectors.clippy.warning_count),
                 message: format!(
                     "clippy warnings ({}) exceed max allowed ({})",
-                    summary.collectors.clippy.warning_count, t.clippy.max_warnings
+                    summary.collectors.clippy.warning_count, thresholds.clippy.max_warnings
                 ),
             });
         }
 
         // Tests
-        let tests_pass = summary.collectors.tests.failed <= t.tests.max_failures;
+        let tests_pass = summary.collectors.tests.failed <= thresholds.tests.max_failures;
         if tests_pass {
             collectors_passed += 1;
         } else {
@@ -62,17 +62,17 @@ impl Gate {
             violations.push(Violation {
                 collector: "tests".to_string(),
                 metric: "failed".to_string(),
-                baseline_value: serde_json::json!(t.tests.max_failures),
+                baseline_value: serde_json::json!(thresholds.tests.max_failures),
                 current_value: serde_json::json!(summary.collectors.tests.failed),
                 message: format!(
                     "test failures ({}) exceed max allowed ({})",
-                    summary.collectors.tests.failed, t.tests.max_failures
+                    summary.collectors.tests.failed, thresholds.tests.max_failures
                 ),
             });
         }
 
         // Coverage
-        let coverage_pass = summary.collectors.coverage.line_percent >= t.coverage.min_line_percent;
+        let coverage_pass = summary.collectors.coverage.line_percent >= thresholds.coverage.min_line_percent;
         if coverage_pass {
             collectors_passed += 1;
         } else {
@@ -80,18 +80,18 @@ impl Gate {
             violations.push(Violation {
                 collector: "coverage".to_string(),
                 metric: "line_percent".to_string(),
-                baseline_value: serde_json::json!(t.coverage.min_line_percent),
+                baseline_value: serde_json::json!(thresholds.coverage.min_line_percent),
                 current_value: serde_json::json!(summary.collectors.coverage.line_percent),
                 message: format!(
                     "coverage ({:.1}%) below minimum ({:.1}%)",
-                    summary.collectors.coverage.line_percent, t.coverage.min_line_percent
+                    summary.collectors.coverage.line_percent, thresholds.coverage.min_line_percent
                 ),
             });
         }
 
         // Deny
-        let deny_pass = summary.collectors.deny.banned_count <= t.deny.max_banned
-            && summary.collectors.deny.license_violations <= t.deny.max_license_violations;
+        let deny_pass = summary.collectors.deny.banned_count <= thresholds.deny.max_banned
+            && summary.collectors.deny.license_violations <= thresholds.deny.max_license_violations;
         if deny_pass {
             collectors_passed += 1;
         } else {
@@ -100,8 +100,8 @@ impl Gate {
                 collector: "deny".to_string(),
                 metric: "banned_count + license_violations".to_string(),
                 baseline_value: serde_json::json!({
-                    "max_banned": t.deny.max_banned,
-                    "max_license_violations": t.deny.max_license_violations
+                    "max_banned": thresholds.deny.max_banned,
+                    "max_license_violations": thresholds.deny.max_license_violations
                 }),
                 current_value: serde_json::json!({
                     "banned_count": summary.collectors.deny.banned_count,
@@ -117,8 +117,8 @@ impl Gate {
 
         // Audit
         let audit_pass = summary.collectors.audit.vulnerability_count
-            <= t.audit.max_vulnerabilities
-            && summary.collectors.audit.critical_count <= t.audit.max_critical;
+            <= thresholds.audit.max_vulnerabilities
+            && summary.collectors.audit.critical_count <= thresholds.audit.max_critical;
         if audit_pass {
             collectors_passed += 1;
         } else {
@@ -127,8 +127,8 @@ impl Gate {
                 collector: "audit".to_string(),
                 metric: "vulnerability_count + critical_count".to_string(),
                 baseline_value: serde_json::json!({
-                    "max_vulnerabilities": t.audit.max_vulnerabilities,
-                    "max_critical": t.audit.max_critical
+                    "max_vulnerabilities": thresholds.audit.max_vulnerabilities,
+                    "max_critical": thresholds.audit.max_critical
                 }),
                 current_value: serde_json::json!({
                     "vulnerability_count": summary.collectors.audit.vulnerability_count,
@@ -147,7 +147,7 @@ impl Gate {
             crate::schema::CollectorStatus::Pass => collectors_passed += 1,
             crate::schema::CollectorStatus::Fail => {
                 collectors_failed += 1;
-                if t.hack.must_pass {
+                if thresholds.hack.must_pass {
                     violations.push(Violation {
                         collector: "hack".to_string(),
                         metric: "status".to_string(),
@@ -162,7 +162,7 @@ impl Gate {
         }
 
         // Mutants
-        let mutants_pass = summary.collectors.mutants.mutation_score >= t.mutants.min_score;
+        let mutants_pass = summary.collectors.mutants.mutation_score >= thresholds.mutants.min_score;
         if mutants_pass {
             collectors_passed += 1;
         } else {
@@ -170,18 +170,18 @@ impl Gate {
             violations.push(Violation {
                 collector: "mutants".to_string(),
                 metric: "mutation_score".to_string(),
-                baseline_value: serde_json::json!(t.mutants.min_score),
+                baseline_value: serde_json::json!(thresholds.mutants.min_score),
                 current_value: serde_json::json!(summary.collectors.mutants.mutation_score),
                 message: format!(
                     "mutation score ({:.2}) below minimum ({:.2})",
-                    summary.collectors.mutants.mutation_score, t.mutants.min_score
+                    summary.collectors.mutants.mutation_score, thresholds.mutants.min_score
                 ),
             });
         }
 
         // Duplicates
         let duplicates_pass =
-            summary.collectors.duplicates.duplicate_lines <= t.duplicates.max_duplicate_lines;
+            summary.collectors.duplicates.duplicate_lines <= thresholds.duplicates.max_duplicate_lines;
         if duplicates_pass {
             collectors_passed += 1;
         } else {
@@ -189,11 +189,11 @@ impl Gate {
             violations.push(Violation {
                 collector: "duplicates".to_string(),
                 metric: "duplicate_lines".to_string(),
-                baseline_value: serde_json::json!(t.duplicates.max_duplicate_lines),
+                baseline_value: serde_json::json!(thresholds.duplicates.max_duplicate_lines),
                 current_value: serde_json::json!(summary.collectors.duplicates.duplicate_lines),
                 message: format!(
                     "duplicate lines ({}) exceed maximum ({})",
-                    summary.collectors.duplicates.duplicate_lines, t.duplicates.max_duplicate_lines
+                    summary.collectors.duplicates.duplicate_lines, thresholds.duplicates.max_duplicate_lines
                 ),
             });
         }
@@ -211,17 +211,17 @@ impl Gate {
                 current_value: serde_json::json!(summary.collectors.loc.long_lines),
                 message: format!(
                     "{} lines exceed max length ({})",
-                    summary.collectors.loc.long_lines, t.loc.max_line_length
+                    summary.collectors.loc.long_lines, thresholds.loc.max_line_length
                 ),
             });
         }
 
         // Size
         // Gate passes if size is not configured in baseline or if no violations.
-        let size_has_thresholds = t.size.max_lines_per_file.is_some()
-            || t.size.max_code_lines_per_file.is_some()
-            || t.size.max_lines_per_function.is_some()
-            || t.size.max_parameters_per_function.is_some();
+        let size_has_thresholds = thresholds.size.max_lines_per_file.is_some()
+            || thresholds.size.max_code_lines_per_file.is_some()
+            || thresholds.size.max_lines_per_function.is_some()
+            || thresholds.size.max_parameters_per_function.is_some();
 
         if size_has_thresholds && !summary.collectors.size.violations.is_empty() {
             collectors_failed += 1;
@@ -241,8 +241,8 @@ impl Gate {
 
         // Complexity
         // Gate passes if complexity is not configured or if no violations.
-        let complexity_has_thresholds = t.complexity.max_cyclomatic_per_function.is_some()
-            || t.complexity.max_nesting_depth.is_some();
+        let complexity_has_thresholds = thresholds.complexity.max_cyclomatic_per_function.is_some()
+            || thresholds.complexity.max_nesting_depth.is_some();
 
         if complexity_has_thresholds && !summary.collectors.complexity.violations.is_empty() {
             collectors_failed += 1;

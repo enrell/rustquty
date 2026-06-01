@@ -76,7 +76,7 @@ fn parse_edition_from_content(content: &str) -> Option<String> {
 
 #[derive(Parser, Debug)]
 #[command(name = "rustquty")]
-#[command(version = "0.3.1")]
+#[command(version)]
 #[command(about = "Local-first quality scanner for Rust projects")]
 struct Cli {
     /// Working directory of the Cargo workspace (default: cwd)

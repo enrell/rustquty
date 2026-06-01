@@ -32,13 +32,6 @@ struct ComplexityViolation {
     severity: String,
 }
 
-/// Configuration for the complexity collector.
-#[derive(Debug, Clone, Default)]
-pub struct ComplexityCollectorConfig {
-    pub max_cyclomatic_per_function: Option<u32>,
-    pub max_nesting_depth: Option<u32>,
-}
-
 /// Extracts complexity metrics from a Rust function body using syn's Visit trait.
 struct ComplexityWalker {
     cyclomatic_complexity: u32,
@@ -214,23 +207,18 @@ fn extract_complexity(content: &str, file_path: &Path) -> Vec<FunctionComplexity
 // ---------------------------------------------------------------------------
 
 pub struct ComplexityCollector {
-    config: ComplexityCollectorConfig,
+    config: ComplexityConfig,
 }
 
 impl ComplexityCollector {
     pub fn new() -> Self {
         Self {
-            config: ComplexityCollectorConfig::default(),
+            config: ComplexityConfig::default(),
         }
     }
 
     pub fn with_config(config: ComplexityConfig) -> Self {
-        Self {
-            config: ComplexityCollectorConfig {
-                max_cyclomatic_per_function: config.max_cyclomatic_per_function,
-                max_nesting_depth: config.max_nesting_depth,
-            },
-        }
+        Self { config }
     }
 
     fn collect_impl(&self, ctx: &Context) -> Result<CollectorOutput, CollectorError> {
