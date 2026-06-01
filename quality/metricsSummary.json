@@ -1,11 +1,11 @@
 {
   "schemaVersion": "1",
-  "generatedAt": "1777939401",
-  "rustqutyVersion": "0.1.1",
+  "generatedAt": "2026-06-01T20:25:01Z",
+  "rustqutyVersion": "0.3.1",
   "project": {
     "name": "rustquty",
     "rustEdition": "2024",
-    "workspaceRoot": "/home/kokoro/btw/lab/rustquty"
+    "workspaceRoot": "/home/enrell/projects/rustquty"
   },
   "collectors": {
     "fmt": {
@@ -18,28 +18,28 @@
       "details": []
     },
     "tests": {
-      "status": "pass",
+      "status": "skipped",
       "passed": 0,
       "failed": 0,
       "ignored": 0,
       "runner": null
     },
     "coverage": {
-      "status": "error",
+      "status": "skipped",
       "linePercent": 0.0
     },
     "deny": {
-      "status": "error",
+      "status": "skipped",
       "bannedCount": 0,
       "licenseViolations": 0
     },
     "audit": {
-      "status": "error",
+      "status": "pass",
       "vulnerabilityCount": 0,
       "criticalCount": 0
     },
     "hack": {
-      "status": "error",
+      "status": "skipped",
       "featureCombinationsTested": 0
     },
     "mutants": {
@@ -49,24 +49,173 @@
       "missed": 0
     },
     "duplicates": {
-      "status": "pass",
-      "totalLines": 0,
-      "duplicateLines": 0,
-      "filesWithDuplicates": 0,
+      "status": "fail",
+      "totalLines": 5807,
+      "duplicateLines": 3119,
+      "filesWithDuplicates": 27,
       "duplicateFiles": []
     },
     "loc": {
-      "status": "pass",
-      "totalLines": 0,
-      "codeLines": 0,
-      "commentLines": 0,
-      "blankLines": 0,
-      "longLines": 0,
-      "maxLineLengthFound": 0,
-      "maxLineLengthAllowed": 120,
-      "files": 0,
+      "status": "fail",
+      "totalLines": 5807,
+      "codeLines": 4953,
+      "commentLines": 238,
+      "blankLines": 616,
+      "longLines": 32,
+      "maxLineLengthFound": 269,
+      "maxLineLengthAllowed": 0,
+      "files": 28,
       "filesWithLongLines": 0,
       "longLineFiles": []
+    },
+    "size": {
+      "status": "fail",
+      "files": 28,
+      "maxLinesPerFile": 802,
+      "maxCodeLinesPerFile": 727,
+      "maxLinesPerFunction": 256,
+      "maxParametersPerFunction": 4,
+      "violations": [
+        {
+          "ruleId": "size:max-lines-per-function",
+          "file": "complexity.rs",
+          "line": 224,
+          "function": "collect_impl",
+          "message": "Function `collect_impl` has 100 lines; maximum allowed is 80",
+          "actual": 100,
+          "threshold": 80,
+          "severity": "major"
+        },
+        {
+          "ruleId": "size:max-lines-per-function",
+          "file": "duplicates.rs",
+          "line": 30,
+          "function": "collect",
+          "message": "Function `collect` has 91 lines; maximum allowed is 80",
+          "actual": 91,
+          "threshold": 80,
+          "severity": "major"
+        },
+        {
+          "ruleId": "size:max-lines-per-function",
+          "file": "loc.rs",
+          "line": 29,
+          "function": "collect",
+          "message": "Function `collect` has 108 lines; maximum allowed is 80",
+          "actual": 108,
+          "threshold": 80,
+          "severity": "major"
+        },
+        {
+          "ruleId": "size:max-lines-per-function",
+          "file": "mod.rs",
+          "line": 133,
+          "function": "assemble_results",
+          "message": "Function `assemble_results` has 256 lines; maximum allowed is 80",
+          "actual": 256,
+          "threshold": 80,
+          "severity": "major"
+        },
+        {
+          "ruleId": "size:max-lines-per-function",
+          "file": "size.rs",
+          "line": 161,
+          "function": "collect_impl",
+          "message": "Function `collect_impl` has 150 lines; maximum allowed is 80",
+          "actual": 150,
+          "threshold": 80,
+          "severity": "major"
+        },
+        {
+          "ruleId": "size:max-code-lines-per-file",
+          "file": "gate.rs",
+          "line": 1,
+          "function": null,
+          "message": "File has 727 code lines; maximum allowed is 700",
+          "actual": 727,
+          "threshold": 700,
+          "severity": "major"
+        },
+        {
+          "ruleId": "size:max-lines-per-function",
+          "file": "gate.rs",
+          "line": 31,
+          "function": "run_with_config",
+          "message": "Function `run_with_config` has 197 lines; maximum allowed is 80",
+          "actual": 197,
+          "threshold": 80,
+          "severity": "major"
+        },
+        {
+          "ruleId": "size:max-lines-per-function",
+          "file": "main.rs",
+          "line": 134,
+          "function": "main",
+          "message": "Function `main` has 193 lines; maximum allowed is 80",
+          "actual": 193,
+          "threshold": 80,
+          "severity": "major"
+        },
+        {
+          "ruleId": "size:max-lines-per-function",
+          "file": "main.rs",
+          "line": 385,
+          "function": "print_human_summary",
+          "message": "Function `print_human_summary` has 83 lines; maximum allowed is 80",
+          "actual": 83,
+          "threshold": 80,
+          "severity": "major"
+        }
+      ]
+    },
+    "complexity": {
+      "status": "fail",
+      "functions": 127,
+      "maxCyclomaticComplexity": 50,
+      "maxNestingDepth": 7,
+      "complexFunctions": 2,
+      "violations": [
+        {
+          "ruleId": "complexity:max-nesting-depth",
+          "file": "loc.rs",
+          "line": 29,
+          "function": "collect",
+          "message": "Function `collect` has nesting depth 7; maximum allowed is 5",
+          "actual": 7,
+          "threshold": 5,
+          "severity": "major"
+        },
+        {
+          "ruleId": "complexity:max-cyclomatic-per-function",
+          "file": "mod.rs",
+          "line": 133,
+          "function": "assemble_results",
+          "message": "Function `assemble_results` has cyclomatic complexity 29; maximum allowed is 15",
+          "actual": 29,
+          "threshold": 15,
+          "severity": "major"
+        },
+        {
+          "ruleId": "complexity:max-nesting-depth",
+          "file": "tests.rs",
+          "line": 27,
+          "function": "parse_test_output",
+          "message": "Function `parse_test_output` has nesting depth 6; maximum allowed is 5",
+          "actual": 6,
+          "threshold": 5,
+          "severity": "major"
+        },
+        {
+          "ruleId": "complexity:max-cyclomatic-per-function",
+          "file": "main.rs",
+          "line": 134,
+          "function": "main",
+          "message": "Function `main` has cyclomatic complexity 50; maximum allowed is 15",
+          "actual": 50,
+          "threshold": 15,
+          "severity": "major"
+        }
+      ]
     }
   }
 }

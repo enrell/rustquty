@@ -1,12 +1,41 @@
 {
   "schemaVersion": "1",
-  "generatedAt": "1777939401",
-  "gateResult": "pass",
-  "violations": [],
+  "generatedAt": "2026-06-01T20:25:01Z",
+  "gateResult": "fail",
+  "violations": [
+    {
+      "collector": "coverage",
+      "metric": "line_percent",
+      "baselineValue": 80.0,
+      "currentValue": 0.0,
+      "message": "coverage (0.0%) below minimum (80.0%)"
+    },
+    {
+      "collector": "loc",
+      "metric": "long_lines",
+      "baselineValue": 0,
+      "currentValue": 32,
+      "message": "32 lines exceed max length (120)"
+    },
+    {
+      "collector": "size",
+      "metric": "violations",
+      "baselineValue": 0,
+      "currentValue": 9,
+      "message": "9 size violation(s) detected"
+    },
+    {
+      "collector": "complexity",
+      "metric": "violations",
+      "baselineValue": 0,
+      "currentValue": 4,
+      "message": "4 complexity violation(s) detected"
+    }
+  ],
   "summary": {
-    "collectorsRun": 9,
-    "collectorsPassed": 8,
-    "collectorsFailed": 1,
+    "collectorsRun": 11,
+    "collectorsPassed": 6,
+    "collectorsFailed": 5,
     "collectorsSkipped": 1
   }
 }

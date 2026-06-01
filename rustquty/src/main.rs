@@ -162,24 +162,35 @@ fn main() -> Result<()> {
             .unwrap_or(Profile::Full)
     });
 
-    // Extract size config from TOML if present.
-    let size_config = config.as_ref().and_then(|c| c.gate.size.clone());
-    let complexity_config = config.as_ref().and_then(|c| c.gate.complexity.clone());
-
-    // Build GateConfig from [gate.defaults] in TOML (absolute thresholds).
-    let gate_config = config.as_ref().and_then(|c| {
-        c.gate.defaults.as_ref().map(|d| rustquty_core::gate::GateConfig {
-            max_cyclomatic_per_function: d.max_cyclomatic_per_function,
-            max_nesting_depth: d.max_nesting_depth,
-            max_lines_per_function: d.max_lines_per_function,
+    // Extract size config from TOML if present, falling back to [gate.defaults].
+    let defaults = config.as_ref().and_then(|c| c.gate.defaults.as_ref());
+    let size_config = config.as_ref().and_then(|c| c.gate.size.clone()).or_else(|| {
+        defaults.map(|d| rustquty_core::config::SizeConfig {
             max_lines_per_file: d.max_lines_per_file,
             max_code_lines_per_file: d.max_code_lines_per_file,
+            max_lines_per_function: d.max_lines_per_function,
             max_parameters_per_function: d.max_parameters_per_function,
-            min_coverage_percent: d.min_coverage_percent,
-            max_duplicate_lines: d.max_duplicate_lines,
-            max_clippy_warnings: d.max_clippy_warnings,
-            max_line_length: d.max_line_length,
         })
+    });
+    let complexity_config = config.as_ref().and_then(|c| c.gate.complexity.clone()).or_else(|| {
+        defaults.map(|d| rustquty_core::config::ComplexityConfig {
+            max_cyclomatic_per_function: d.max_cyclomatic_per_function,
+            max_nesting_depth: d.max_nesting_depth,
+        })
+    });
+
+    // Build GateConfig from [gate.defaults] in TOML (absolute thresholds).
+    let gate_config = defaults.map(|d| rustquty_core::gate::GateConfig {
+        max_cyclomatic_per_function: d.max_cyclomatic_per_function,
+        max_nesting_depth: d.max_nesting_depth,
+        max_lines_per_function: d.max_lines_per_function,
+        max_lines_per_file: d.max_lines_per_file,
+        max_code_lines_per_file: d.max_code_lines_per_file,
+        max_parameters_per_function: d.max_parameters_per_function,
+        min_coverage_percent: d.min_coverage_percent,
+        max_duplicate_lines: d.max_duplicate_lines,
+        max_clippy_warnings: d.max_clippy_warnings,
+        max_line_length: d.max_line_length,
     });
 
     // Build context with CLI overrides

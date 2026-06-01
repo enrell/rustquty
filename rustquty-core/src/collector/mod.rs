@@ -312,6 +312,21 @@ pub fn assemble_results(
                         d["maxLinesPerFunction"].as_u64().unwrap_or(0) as u32;
                     size_result.max_parameters_per_function =
                         d["maxParametersPerFunction"].as_u64().unwrap_or(0) as u32;
+                    if let Some(arr) = d["violations"].as_array() {
+                        size_result.violations = arr
+                            .iter()
+                            .map(|v| crate::schema::SizeViolation {
+                                rule_id: v["ruleId"].as_str().unwrap_or("").to_string(),
+                                file: v["file"].as_str().unwrap_or("").to_string(),
+                                line: v["line"].as_u64().unwrap_or(0) as u32,
+                                function: v["function"].as_str().map(String::from),
+                                message: v["message"].as_str().unwrap_or("").to_string(),
+                                actual: v["actual"].as_u64().unwrap_or(0) as u32,
+                                threshold: v["threshold"].as_u64().unwrap_or(0) as u32,
+                                severity: v["severity"].as_str().unwrap_or("").to_string(),
+                            })
+                            .collect();
+                    }
                 }
                 size_result.status.clone_from(&output.status);
             }
@@ -324,6 +339,21 @@ pub fn assemble_results(
                         d["maxNestingDepth"].as_u64().unwrap_or(0) as u32;
                     complexity_result.complex_functions =
                         d["complexFunctions"].as_u64().unwrap_or(0) as u32;
+                    if let Some(arr) = d["violations"].as_array() {
+                        complexity_result.violations = arr
+                            .iter()
+                            .map(|v| crate::schema::ComplexityViolation {
+                                rule_id: v["ruleId"].as_str().unwrap_or("").to_string(),
+                                file: v["file"].as_str().unwrap_or("").to_string(),
+                                line: v["line"].as_u64().unwrap_or(0) as u32,
+                                function: v["function"].as_str().map(String::from),
+                                message: v["message"].as_str().unwrap_or("").to_string(),
+                                actual: v["actual"].as_u64().unwrap_or(0) as u32,
+                                threshold: v["threshold"].as_u64().unwrap_or(0) as u32,
+                                severity: v["severity"].as_str().unwrap_or("").to_string(),
+                            })
+                            .collect();
+                    }
                 }
                 complexity_result.status.clone_from(&output.status);
             }
