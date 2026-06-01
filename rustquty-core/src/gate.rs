@@ -16,249 +16,148 @@ impl Gate {
 
         let thresholds = &baseline.thresholds;
 
-        // Fmt
-        match summary.collectors.fmt.status {
-            crate::schema::CollectorStatus::Pass => collectors_passed += 1,
-            crate::schema::CollectorStatus::Fail => {
-                collectors_failed += 1;
-                if thresholds.fmt.must_pass {
+        macro_rules! check_pass {
+            ($pass:expr, $collector:expr, $metric:expr, $baseline_val:expr, $current_val:expr, $msg:expr) => {
+                if $pass {
+                    collectors_passed += 1;
+                } else {
+                    collectors_failed += 1;
                     violations.push(Violation {
-                        collector: "fmt".to_string(),
-                        metric: "status".to_string(),
-                        baseline_value: serde_json::json!(true),
-                        current_value: serde_json::json!("fail"),
-                        message: "fmt check failed".to_string(),
+                        collector: $collector.to_string(),
+                        metric: $metric.to_string(),
+                        baseline_value: $baseline_val,
+                        current_value: $current_val,
+                        message: $msg,
                     });
                 }
-            }
-            crate::schema::CollectorStatus::Skipped => collectors_skipped += 1,
-            crate::schema::CollectorStatus::Error => collectors_skipped += 1,
+            };
         }
+
+        macro_rules! check_status {
+            ($status:expr, $collector:expr, $must_pass:expr) => {
+                match $status {
+                    crate::schema::CollectorStatus::Pass => collectors_passed += 1,
+                    crate::schema::CollectorStatus::Fail => {
+                        collectors_failed += 1;
+                        if $must_pass {
+                            violations.push(Violation {
+                                collector: $collector.to_string(),
+                                metric: "status".to_string(),
+                                baseline_value: serde_json::json!(true),
+                                current_value: serde_json::json!("fail"),
+                                message: format!("{} check failed", $collector),
+                            });
+                        }
+                    }
+                    crate::schema::CollectorStatus::Skipped => collectors_skipped += 1,
+                    crate::schema::CollectorStatus::Error => collectors_skipped += 1,
+                }
+            };
+        }
+
+        // Fmt
+        check_status!(summary.collectors.fmt.status, "fmt", thresholds.fmt.must_pass);
 
         // Clippy
-        let clippy_pass = summary.collectors.clippy.warning_count <= thresholds.clippy.max_warnings;
-        if clippy_pass {
-            collectors_passed += 1;
-        } else {
-            collectors_failed += 1;
-            violations.push(Violation {
-                collector: "clippy".to_string(),
-                metric: "warning_count".to_string(),
-                baseline_value: serde_json::json!(thresholds.clippy.max_warnings),
-                current_value: serde_json::json!(summary.collectors.clippy.warning_count),
-                message: format!(
-                    "clippy warnings ({}) exceed max allowed ({})",
-                    summary.collectors.clippy.warning_count, thresholds.clippy.max_warnings
-                ),
-            });
-        }
+        check_pass!(
+            summary.collectors.clippy.warning_count <= thresholds.clippy.max_warnings,
+            "clippy", "warning_count",
+            serde_json::json!(thresholds.clippy.max_warnings),
+            serde_json::json!(summary.collectors.clippy.warning_count),
+            format!("clippy warnings ({}) exceed max allowed ({})", summary.collectors.clippy.warning_count, thresholds.clippy.max_warnings)
+        );
 
         // Tests
-        let tests_pass = summary.collectors.tests.failed <= thresholds.tests.max_failures;
-        if tests_pass {
-            collectors_passed += 1;
-        } else {
-            collectors_failed += 1;
-            violations.push(Violation {
-                collector: "tests".to_string(),
-                metric: "failed".to_string(),
-                baseline_value: serde_json::json!(thresholds.tests.max_failures),
-                current_value: serde_json::json!(summary.collectors.tests.failed),
-                message: format!(
-                    "test failures ({}) exceed max allowed ({})",
-                    summary.collectors.tests.failed, thresholds.tests.max_failures
-                ),
-            });
-        }
+        check_pass!(
+            summary.collectors.tests.failed <= thresholds.tests.max_failures,
+            "tests", "failed",
+            serde_json::json!(thresholds.tests.max_failures),
+            serde_json::json!(summary.collectors.tests.failed),
+            format!("test failures ({}) exceed max allowed ({})", summary.collectors.tests.failed, thresholds.tests.max_failures)
+        );
 
         // Coverage
-        let coverage_pass = summary.collectors.coverage.line_percent >= thresholds.coverage.min_line_percent;
-        if coverage_pass {
-            collectors_passed += 1;
-        } else {
-            collectors_failed += 1;
-            violations.push(Violation {
-                collector: "coverage".to_string(),
-                metric: "line_percent".to_string(),
-                baseline_value: serde_json::json!(thresholds.coverage.min_line_percent),
-                current_value: serde_json::json!(summary.collectors.coverage.line_percent),
-                message: format!(
-                    "coverage ({:.1}%) below minimum ({:.1}%)",
-                    summary.collectors.coverage.line_percent, thresholds.coverage.min_line_percent
-                ),
-            });
-        }
+        check_pass!(
+            summary.collectors.coverage.line_percent >= thresholds.coverage.min_line_percent,
+            "coverage", "line_percent",
+            serde_json::json!(thresholds.coverage.min_line_percent),
+            serde_json::json!(summary.collectors.coverage.line_percent),
+            format!("coverage ({:.1}%) below minimum ({:.1}%)", summary.collectors.coverage.line_percent, thresholds.coverage.min_line_percent)
+        );
 
         // Deny
-        let deny_pass = summary.collectors.deny.banned_count <= thresholds.deny.max_banned
-            && summary.collectors.deny.license_violations <= thresholds.deny.max_license_violations;
-        if deny_pass {
-            collectors_passed += 1;
-        } else {
-            collectors_failed += 1;
-            violations.push(Violation {
-                collector: "deny".to_string(),
-                metric: "banned_count + license_violations".to_string(),
-                baseline_value: serde_json::json!({
-                    "max_banned": thresholds.deny.max_banned,
-                    "max_license_violations": thresholds.deny.max_license_violations
-                }),
-                current_value: serde_json::json!({
-                    "banned_count": summary.collectors.deny.banned_count,
-                    "license_violations": summary.collectors.deny.license_violations
-                }),
-                message: format!(
-                    "deny check failed: {} banned, {} license violations",
-                    summary.collectors.deny.banned_count,
-                    summary.collectors.deny.license_violations
-                ),
-            });
-        }
+        check_pass!(
+            summary.collectors.deny.banned_count <= thresholds.deny.max_banned
+                && summary.collectors.deny.license_violations <= thresholds.deny.max_license_violations,
+            "deny", "banned_count + license_violations",
+            serde_json::json!({"max_banned": thresholds.deny.max_banned, "max_license_violations": thresholds.deny.max_license_violations}),
+            serde_json::json!({"banned_count": summary.collectors.deny.banned_count, "license_violations": summary.collectors.deny.license_violations}),
+            format!("deny check failed: {} banned, {} license violations", summary.collectors.deny.banned_count, summary.collectors.deny.license_violations)
+        );
 
         // Audit
-        let audit_pass = summary.collectors.audit.vulnerability_count
-            <= thresholds.audit.max_vulnerabilities
-            && summary.collectors.audit.critical_count <= thresholds.audit.max_critical;
-        if audit_pass {
-            collectors_passed += 1;
-        } else {
-            collectors_failed += 1;
-            violations.push(Violation {
-                collector: "audit".to_string(),
-                metric: "vulnerability_count + critical_count".to_string(),
-                baseline_value: serde_json::json!({
-                    "max_vulnerabilities": thresholds.audit.max_vulnerabilities,
-                    "max_critical": thresholds.audit.max_critical
-                }),
-                current_value: serde_json::json!({
-                    "vulnerability_count": summary.collectors.audit.vulnerability_count,
-                    "critical_count": summary.collectors.audit.critical_count
-                }),
-                message: format!(
-                    "audit found {} vulnerabilities ({} critical), exceeds baseline",
-                    summary.collectors.audit.vulnerability_count,
-                    summary.collectors.audit.critical_count
-                ),
-            });
-        }
+        check_pass!(
+            summary.collectors.audit.vulnerability_count <= thresholds.audit.max_vulnerabilities
+                && summary.collectors.audit.critical_count <= thresholds.audit.max_critical,
+            "audit", "vulnerability_count + critical_count",
+            serde_json::json!({"max_vulnerabilities": thresholds.audit.max_vulnerabilities, "max_critical": thresholds.audit.max_critical}),
+            serde_json::json!({"vulnerability_count": summary.collectors.audit.vulnerability_count, "critical_count": summary.collectors.audit.critical_count}),
+            format!("audit found {} vulnerabilities ({} critical), exceeds baseline", summary.collectors.audit.vulnerability_count, summary.collectors.audit.critical_count)
+        );
 
         // Hack
-        match summary.collectors.hack.status {
-            crate::schema::CollectorStatus::Pass => collectors_passed += 1,
-            crate::schema::CollectorStatus::Fail => {
-                collectors_failed += 1;
-                if thresholds.hack.must_pass {
-                    violations.push(Violation {
-                        collector: "hack".to_string(),
-                        metric: "status".to_string(),
-                        baseline_value: serde_json::json!(true),
-                        current_value: serde_json::json!("fail"),
-                        message: "cargo hack check failed".to_string(),
-                    });
-                }
-            }
-            crate::schema::CollectorStatus::Skipped => collectors_skipped += 1,
-            crate::schema::CollectorStatus::Error => collectors_skipped += 1,
-        }
+        check_status!(summary.collectors.hack.status, "hack", thresholds.hack.must_pass);
 
         // Mutants
-        let mutants_pass = summary.collectors.mutants.mutation_score >= thresholds.mutants.min_score;
-        if mutants_pass {
-            collectors_passed += 1;
-        } else {
-            collectors_failed += 1;
-            violations.push(Violation {
-                collector: "mutants".to_string(),
-                metric: "mutation_score".to_string(),
-                baseline_value: serde_json::json!(thresholds.mutants.min_score),
-                current_value: serde_json::json!(summary.collectors.mutants.mutation_score),
-                message: format!(
-                    "mutation score ({:.2}) below minimum ({:.2})",
-                    summary.collectors.mutants.mutation_score, thresholds.mutants.min_score
-                ),
-            });
-        }
+        check_pass!(
+            summary.collectors.mutants.mutation_score >= thresholds.mutants.min_score,
+            "mutants", "mutation_score",
+            serde_json::json!(thresholds.mutants.min_score),
+            serde_json::json!(summary.collectors.mutants.mutation_score),
+            format!("mutation score ({:.2}) below minimum ({:.2})", summary.collectors.mutants.mutation_score, thresholds.mutants.min_score)
+        );
 
         // Duplicates
-        let duplicates_pass =
-            summary.collectors.duplicates.duplicate_lines <= thresholds.duplicates.max_duplicate_lines;
-        if duplicates_pass {
-            collectors_passed += 1;
-        } else {
-            collectors_failed += 1;
-            violations.push(Violation {
-                collector: "duplicates".to_string(),
-                metric: "duplicate_lines".to_string(),
-                baseline_value: serde_json::json!(thresholds.duplicates.max_duplicate_lines),
-                current_value: serde_json::json!(summary.collectors.duplicates.duplicate_lines),
-                message: format!(
-                    "duplicate lines ({}) exceed maximum ({})",
-                    summary.collectors.duplicates.duplicate_lines, thresholds.duplicates.max_duplicate_lines
-                ),
-            });
-        }
+        check_pass!(
+            summary.collectors.duplicates.duplicate_lines <= thresholds.duplicates.max_duplicate_lines,
+            "duplicates", "duplicate_lines",
+            serde_json::json!(thresholds.duplicates.max_duplicate_lines),
+            serde_json::json!(summary.collectors.duplicates.duplicate_lines),
+            format!("duplicate lines ({}) exceed maximum ({})", summary.collectors.duplicates.duplicate_lines, thresholds.duplicates.max_duplicate_lines)
+        );
 
         // LOC
-        let loc_pass = summary.collectors.loc.long_lines == 0;
-        if loc_pass {
-            collectors_passed += 1;
-        } else {
-            collectors_failed += 1;
-            violations.push(Violation {
-                collector: "loc".to_string(),
-                metric: "long_lines".to_string(),
-                baseline_value: serde_json::json!(0),
-                current_value: serde_json::json!(summary.collectors.loc.long_lines),
-                message: format!(
-                    "{} lines exceed max length ({})",
-                    summary.collectors.loc.long_lines, thresholds.loc.max_line_length
-                ),
-            });
-        }
+        check_pass!(
+            summary.collectors.loc.long_lines == 0,
+            "loc", "long_lines",
+            serde_json::json!(0),
+            serde_json::json!(summary.collectors.loc.long_lines),
+            format!("{} lines exceed max length ({})", summary.collectors.loc.long_lines, thresholds.loc.max_line_length)
+        );
 
         // Size
-        // Gate passes if size is not configured in baseline or if no violations.
         let size_has_thresholds = thresholds.size.max_lines_per_file.is_some()
             || thresholds.size.max_code_lines_per_file.is_some()
             || thresholds.size.max_lines_per_function.is_some()
             || thresholds.size.max_parameters_per_function.is_some();
-
-        if size_has_thresholds && !summary.collectors.size.violations.is_empty() {
-            collectors_failed += 1;
-            violations.push(Violation {
-                collector: "size".to_string(),
-                metric: "violations".to_string(),
-                baseline_value: serde_json::json!(0),
-                current_value: serde_json::json!(summary.collectors.size.violations.len()),
-                message: format!(
-                    "{} size violation(s) detected",
-                    summary.collectors.size.violations.len()
-                ),
-            });
-        } else {
-            collectors_passed += 1;
-        }
+        check_pass!(
+            !size_has_thresholds || summary.collectors.size.violations.is_empty(),
+            "size", "violations",
+            serde_json::json!(0),
+            serde_json::json!(summary.collectors.size.violations.len()),
+            format!("{} size violation(s) detected", summary.collectors.size.violations.len())
+        );
 
         // Complexity
-        // Gate passes if complexity is not configured or if no violations.
         let complexity_has_thresholds = thresholds.complexity.max_cyclomatic_per_function.is_some()
             || thresholds.complexity.max_nesting_depth.is_some();
-
-        if complexity_has_thresholds && !summary.collectors.complexity.violations.is_empty() {
-            collectors_failed += 1;
-            violations.push(Violation {
-                collector: "complexity".to_string(),
-                metric: "violations".to_string(),
-                baseline_value: serde_json::json!(0),
-                current_value: serde_json::json!(summary.collectors.complexity.violations.len()),
-                message: format!(
-                    "{} complexity violation(s) detected",
-                    summary.collectors.complexity.violations.len()
-                ),
-            });
-        } else {
-            collectors_passed += 1;
-        }
+        check_pass!(
+            !complexity_has_thresholds || summary.collectors.complexity.violations.is_empty(),
+            "complexity", "violations",
+            serde_json::json!(0),
+            serde_json::json!(summary.collectors.complexity.violations.len()),
+            format!("{} complexity violation(s) detected", summary.collectors.complexity.violations.len())
+        );
 
         let collectors_run = collectors_passed + collectors_failed;
         let gate_result = if violations.is_empty() {
