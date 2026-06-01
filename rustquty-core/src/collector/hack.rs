@@ -47,20 +47,23 @@ impl Collector for HackCollector {
             .map_err(|e| CollectorError::IoError(e.to_string()))?;
 
         let duration_ms = start.elapsed().as_millis() as u64;
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
-        let _feature_combinations = self.parse_feature_count(&stderr);
+        let feature_combinations = self.parse_feature_count(&stderr);
         let status = if output.status.success() {
             crate::schema::CollectorStatus::Pass
         } else {
             crate::schema::CollectorStatus::Fail
         };
 
+        let details = serde_json::json!({
+            "featureCombinationsTested": feature_combinations,
+        });
+
         Ok(CollectorOutput {
             status,
             duration_ms,
-            stdout,
+            stdout: serde_json::to_string(&details).unwrap_or_default(),
             stderr,
         })
     }

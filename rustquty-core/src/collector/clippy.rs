@@ -70,24 +70,32 @@ impl Collector for ClippyCollector {
             .map_err(|e| CollectorError::IoError(e.to_string()))?;
 
         let duration_ms = start.elapsed().as_millis() as u64;
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let raw_stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
-        // Even if exit code is non-zero due to warnings, we parse the output
-        let (warning_count, _lints) = self.parse_json_output(&stdout);
+        let (warning_count, lints) = self.parse_json_output(&raw_stdout);
         let status = if output.status.success() {
             crate::schema::CollectorStatus::Pass
         } else if warning_count > 0 {
             crate::schema::CollectorStatus::Fail
         } else {
-            // Non-zero but no warnings parsed — could be an error
             crate::schema::CollectorStatus::Error
         };
+
+        let details = serde_json::json!({
+            "warningCount": warning_count,
+            "details": lints.iter().map(|l| serde_json::json!({
+                "code": l.code,
+                "message": l.message,
+                "file": l.file,
+                "line": l.line,
+            })).collect::<Vec<_>>(),
+        });
 
         Ok(CollectorOutput {
             status,
             duration_ms,
-            stdout,
+            stdout: serde_json::to_string(&details).unwrap_or_default(),
             stderr,
         })
     }

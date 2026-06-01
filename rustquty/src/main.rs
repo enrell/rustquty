@@ -445,12 +445,65 @@ fn run_collectors(
     for (name, output) in &results {
         match *name {
             "fmt" => fmt_result.status.clone_from(&output.status),
-            "clippy" => clippy_result.status.clone_from(&output.status),
-            "tests" => test_result.status.clone_from(&output.status),
-            "coverage" => coverage_result.status.clone_from(&output.status),
-            "deny" => deny_result.status.clone_from(&output.status),
-            "audit" => audit_result.status.clone_from(&output.status),
-            "hack" => hack_result.status.clone_from(&output.status),
+            "clippy" => {
+                if let Ok(details) = serde_json::from_str::<serde_json::Value>(&output.stdout) {
+                    clippy_result.warning_count =
+                        details["warningCount"].as_u64().unwrap_or(0) as u32;
+                    if let Some(arr) = details["details"].as_array() {
+                        clippy_result.details = arr
+                            .iter()
+                            .map(|v| rustquty_core::schema::ClippyLint {
+                                code: v["code"].as_str().unwrap_or("").to_string(),
+                                message: v["message"].as_str().unwrap_or("").to_string(),
+                                file: v["file"].as_str().map(String::from),
+                                line: v["line"].as_u64().map(|v| v as u32),
+                            })
+                            .collect();
+                    }
+                }
+                clippy_result.status.clone_from(&output.status);
+            }
+            "tests" => {
+                if let Ok(details) = serde_json::from_str::<serde_json::Value>(&output.stdout) {
+                    test_result.passed = details["passed"].as_u64().unwrap_or(0) as u32;
+                    test_result.failed = details["failed"].as_u64().unwrap_or(0) as u32;
+                    test_result.ignored = details["ignored"].as_u64().unwrap_or(0) as u32;
+                    test_result.runner = details["runner"].as_str().map(String::from);
+                }
+                test_result.status.clone_from(&output.status);
+            }
+            "coverage" => {
+                if let Ok(details) = serde_json::from_str::<serde_json::Value>(&output.stdout) {
+                    coverage_result.line_percent =
+                        details["linePercent"].as_f64().unwrap_or(0.0);
+                }
+                coverage_result.status.clone_from(&output.status);
+            }
+            "deny" => {
+                if let Ok(details) = serde_json::from_str::<serde_json::Value>(&output.stdout) {
+                    deny_result.banned_count =
+                        details["bannedCount"].as_u64().unwrap_or(0) as u32;
+                    deny_result.license_violations =
+                        details["licenseViolations"].as_u64().unwrap_or(0) as u32;
+                }
+                deny_result.status.clone_from(&output.status);
+            }
+            "audit" => {
+                if let Ok(details) = serde_json::from_str::<serde_json::Value>(&output.stdout) {
+                    audit_result.vulnerability_count =
+                        details["vulnerabilityCount"].as_u64().unwrap_or(0) as u32;
+                    audit_result.critical_count =
+                        details["criticalCount"].as_u64().unwrap_or(0) as u32;
+                }
+                audit_result.status.clone_from(&output.status);
+            }
+            "hack" => {
+                if let Ok(details) = serde_json::from_str::<serde_json::Value>(&output.stdout) {
+                    hack_result.feature_combinations_tested =
+                        details["featureCombinationsTested"].as_u64().unwrap_or(0) as u32;
+                }
+                hack_result.status.clone_from(&output.status);
+            }
             "mutants" => mutants_result.status.clone_from(&output.status),
             "duplicates" => {
                 if let Ok(details) = serde_json::from_str::<serde_json::Value>(&output.stdout) {

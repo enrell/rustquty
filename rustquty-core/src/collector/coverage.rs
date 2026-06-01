@@ -51,20 +51,24 @@ impl Collector for CoverageCollector {
             .map_err(|e| CollectorError::IoError(e.to_string()))?;
 
         let duration_ms = start.elapsed().as_millis() as u64;
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let raw_stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
-        let _line_percent = self.parse_json_output(&stdout).unwrap_or(0.0);
+        let line_percent = self.parse_json_output(&raw_stdout).unwrap_or(0.0);
         let status = if output.status.success() {
             crate::schema::CollectorStatus::Pass
         } else {
             crate::schema::CollectorStatus::Error
         };
 
+        let details = serde_json::json!({
+            "linePercent": line_percent,
+        });
+
         Ok(CollectorOutput {
             status,
             duration_ms,
-            stdout,
+            stdout: serde_json::to_string(&details).unwrap_or_default(),
             stderr,
         })
     }
@@ -85,5 +89,24 @@ mod tests {
         let collector = CoverageCollector::new();
         let json = r#"{"lines":{"percent":87.5}}"#;
         assert!((collector.parse_json_output(json).unwrap() - 87.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_parse_json_output_alternative_format() {
+        let collector = CoverageCollector::new();
+        let json = r#"{"totals":{"lines":{"percent":92.3}}}"#;
+        assert!((collector.parse_json_output(json).unwrap() - 92.3).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_parse_json_output_empty() {
+        let collector = CoverageCollector::new();
+        assert!(collector.parse_json_output("{}").is_none());
+    }
+
+    #[test]
+    fn test_parse_json_output_invalid() {
+        let collector = CoverageCollector::new();
+        assert!(collector.parse_json_output("not json").is_none());
     }
 }

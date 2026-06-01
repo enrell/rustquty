@@ -58,20 +58,25 @@ impl Collector for AuditCollector {
             .map_err(|e| CollectorError::IoError(e.to_string()))?;
 
         let duration_ms = start.elapsed().as_millis() as u64;
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let raw_stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
-        let (vulnerability_count, _critical_count) = self.parse_json_output(&stdout);
+        let (vulnerability_count, critical_count) = self.parse_json_output(&raw_stdout);
         let status = if vulnerability_count == 0 {
             crate::schema::CollectorStatus::Pass
         } else {
             crate::schema::CollectorStatus::Fail
         };
 
+        let details = serde_json::json!({
+            "vulnerabilityCount": vulnerability_count,
+            "criticalCount": critical_count,
+        });
+
         Ok(CollectorOutput {
             status,
             duration_ms,
-            stdout,
+            stdout: serde_json::to_string(&details).unwrap_or_default(),
             stderr,
         })
     }

@@ -88,23 +88,29 @@ impl Collector for TestCollector {
 
         let output = output.map_err(|e| CollectorError::IoError(e.to_string()))?;
         let duration_ms = start.elapsed().as_millis() as u64;
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        let raw_stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let raw_stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
-        let (_passed, failed, _ignored) = self.parse_test_output(&stdout, &stderr);
+        let (passed, failed, ignored) = self.parse_test_output(&raw_stdout, &raw_stderr);
         let status = if failed > 0 {
             crate::schema::CollectorStatus::Fail
         } else {
             crate::schema::CollectorStatus::Pass
         };
 
+        let details = serde_json::json!({
+            "passed": passed,
+            "failed": failed,
+            "ignored": ignored,
+            "runner": runner,
+        });
+
         let mut result = CollectorOutput {
             status,
             duration_ms,
-            stdout,
-            stderr,
+            stdout: serde_json::to_string(&details).unwrap_or_default(),
+            stderr: raw_stderr,
         };
-        // Attach runner info in stderr as a convention for now
         if runner == "nextest" {
             result.stderr = format!("[runner: nextest] {}", result.stderr);
         }

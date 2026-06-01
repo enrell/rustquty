@@ -54,20 +54,25 @@ impl Collector for DenyCollector {
             .map_err(|e| CollectorError::IoError(e.to_string()))?;
 
         let duration_ms = start.elapsed().as_millis() as u64;
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let raw_stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
-        let (_banned_count, _license_violations) = self.parse_json_output(&stdout);
+        let (banned_count, license_violations) = self.parse_json_output(&raw_stdout);
         let status = if output.status.success() {
             crate::schema::CollectorStatus::Pass
         } else {
             crate::schema::CollectorStatus::Fail
         };
 
+        let details = serde_json::json!({
+            "bannedCount": banned_count,
+            "licenseViolations": license_violations,
+        });
+
         Ok(CollectorOutput {
             status,
             duration_ms,
-            stdout,
+            stdout: serde_json::to_string(&details).unwrap_or_default(),
             stderr,
         })
     }
