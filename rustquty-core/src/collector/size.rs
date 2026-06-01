@@ -33,17 +33,25 @@ fn count_total_lines(content: &str) -> u32 {
 /// Count lines that are code (not blank, not a pure comment line).
 fn count_code_lines(content: &str) -> u32 {
     let mut code_lines = 0u32;
+    let mut in_block_comment = false;
     for line in content.lines() {
         let trimmed = line.trim();
         if trimmed.is_empty() {
             continue;
         }
-        // Simple comment line detection:
-        // - // single line comment (including /// and //! variants)
-        // - /* block comment start
-        // - * block comment continuation
-        // - */ block comment end
-        if trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.ends_with("*/") {
+        if in_block_comment {
+            if trimmed.ends_with("*/") {
+                in_block_comment = false;
+            }
+            continue;
+        }
+        if trimmed.starts_with("//") {
+            continue;
+        }
+        if trimmed.starts_with("/*") {
+            if !trimmed.ends_with("*/") {
+                in_block_comment = true;
+            }
             continue;
         }
         code_lines += 1;
@@ -414,6 +422,18 @@ mod tests {
         // All comment variants should be skipped.
         let content = "/// doc comment\n//! inner doc\nfn main() {}\n/* multi\n   line */";
         assert_eq!(count_code_lines(content), 1); // "fn main() {}"
+    }
+
+    #[test]
+    fn test_count_code_lines_block_comment_interior() {
+        // BUG: lines inside a /* ... */ block comment should not be counted as code.
+        let content = "/* start\n   inside\n   still inside\n*/\nfn main() {}";
+        // Expected: 1 code line (fn main), not 3
+        assert_eq!(
+            count_code_lines(content),
+            1,
+            "Block comment interior lines should not be counted as code"
+        );
     }
 
     #[test]

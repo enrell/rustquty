@@ -286,7 +286,50 @@ fn chrono_now() -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap();
-    format!("{}", now.as_secs())
+    let secs = now.as_secs();
+    // Convert to broken-down UTC time
+    let (year, month, day, hour, min, sec) = unix_to_datetime(secs);
+    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", year, month, day, hour, min, sec)
+}
+
+fn unix_to_datetime(secs: u64) -> (u64, u64, u64, u64, u64, u64) {
+    let days = secs / 86400;
+    let time_of_day = secs % 86400;
+    let hour = time_of_day / 3600;
+    let min = (time_of_day % 3600) / 60;
+    let sec = time_of_day % 60;
+
+    // Days since 1970-01-01 to year/month/day
+    let mut y = 1970u64;
+    let mut remaining = days;
+    loop {
+        let days_in_year = if is_leap(y) { 366 } else { 365 };
+        if remaining < days_in_year {
+            break;
+        }
+        remaining -= days_in_year;
+        y += 1;
+    }
+    let leap = is_leap(y);
+    let month_days: [u64; 12] = [
+        31,
+        if leap { 29 } else { 28 },
+        31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+    ];
+    let mut m = 1u64;
+    for &d in &month_days {
+        if remaining < d {
+            break;
+        }
+        remaining -= d;
+        m += 1;
+    }
+    let d = remaining + 1;
+    (y, m, d, hour, min, sec)
+}
+
+fn is_leap(year: u64) -> bool {
+    (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
 }
 
 #[cfg(test)]

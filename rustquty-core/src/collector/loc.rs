@@ -66,6 +66,7 @@ impl Collector for LocCollector {
                 .unwrap_or_else(|| "unknown".to_string());
 
             let mut file_has_long_line = false;
+            let mut in_block_comment = false;
             for line in &lines {
                 let trimmed = line.trim();
                 let line_len = line.len();
@@ -81,11 +82,18 @@ impl Collector for LocCollector {
 
                 if trimmed.is_empty() {
                     blank_lines += 1;
-                } else if trimmed.starts_with("//")
-                    || trimmed.starts_with("/*")
-                    || trimmed.ends_with("*/")
-                {
+                } else if in_block_comment {
                     comment_lines += 1;
+                    if trimmed.ends_with("*/") {
+                        in_block_comment = false;
+                    }
+                } else if trimmed.starts_with("//") {
+                    comment_lines += 1;
+                } else if trimmed.starts_with("/*") {
+                    comment_lines += 1;
+                    if !trimmed.ends_with("*/") {
+                        in_block_comment = true;
+                    }
                 } else {
                     code_lines += 1;
                 }
@@ -137,6 +145,25 @@ impl Default for LocCollector {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::context::Context;
+
+    fn temp_file(content: &str) -> tempfile::TempDir {
+        let dir = tempfile::TempDir::new().unwrap();
+        let file_path = dir.path().join("test.rs");
+        std::fs::write(&file_path, content).unwrap();
+        dir
+    }
+
+    fn run_on_content(content: &str) -> CollectorOutput {
+        let dir = temp_file(content);
+        let ctx = Context::new(dir.path().to_path_buf());
+        let collector = LocCollector::new();
+        collector.collect(&ctx).unwrap()
+    }
+
+    fn parse_details(output: &CollectorOutput) -> serde_json::Value {
+        serde_json::from_str(&output.stdout).unwrap()
+    }
 
     #[test]
     fn test_loc_collector_name() {
@@ -148,5 +175,61 @@ mod tests {
     fn test_loc_collector_available() {
         let collector = LocCollector::new();
         assert!(collector.is_available());
+    }
+
+    #[test]
+    fn test_block_comment_lines_counted_as_code() {
+        // BUG: lines inside a /* ... */ block comment are misclassified as code.
+        // Only the opening /* and closing */ are detected as comments;
+        // lines between them should also be comments but are counted as code.
+        let content = "/* block start\n   inside block\n   still inside\n*/\nfn main() {}";
+        let output = run_on_content(content);
+        let details = parse_details(&output);
+
+        let comment_lines = details["commentLines"].as_u64().unwrap();
+        let code_lines = details["codeLines"].as_u64().unwrap();
+
+        // Expected: 4 comment lines (/* start, 2 inside, */ end), 1 code line (fn main)
+        // Actual (buggy): 2 comment lines (/* and */), 3 code lines (2 inside + fn main)
+        assert_eq!(
+            comment_lines, 4,
+            "Block comment interior lines should be counted as comments"
+        );
+        assert_eq!(
+            code_lines, 1,
+            "Only 'fn main() {{}}' should be code, not block comment lines"
+        );
+    }
+
+    #[test]
+    fn test_single_line_block_comment() {
+        // Single-line /* ... */ should work correctly
+        let content = "/* single line comment */\nfn main() {}";
+        let output = run_on_content(content);
+        let details = parse_details(&output);
+
+        let comment_lines = details["commentLines"].as_u64().unwrap();
+        let code_lines = details["codeLines"].as_u64().unwrap();
+
+        assert_eq!(comment_lines, 1);
+        assert_eq!(code_lines, 1);
+    }
+
+    #[test]
+    fn test_mixed_comments() {
+        let content = "// line comment\nfn main() {}\n/* block\n   interior\n*/";
+        let output = run_on_content(content);
+        let details = parse_details(&output);
+
+        let comment_lines = details["commentLines"].as_u64().unwrap();
+        let code_lines = details["codeLines"].as_u64().unwrap();
+
+        // Expected: 4 comment lines (//, /*, interior, */), 1 code line
+        // Actual (buggy): 3 comment lines (//, /*, */), 2 code lines (fn main, interior)
+        assert_eq!(
+            comment_lines, 4,
+            "Block comment interior should be counted as comments"
+        );
+        assert_eq!(code_lines, 1);
     }
 }

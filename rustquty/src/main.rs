@@ -274,7 +274,7 @@ fn main() -> Result<()> {
 
         Commands::Doctor => {
             let all = collectors::all_collectors();
-            println!("rustquty 0.1.0 — collector availability\n");
+            println!("rustquty {} — collector availability\n", env!("CARGO_PKG_VERSION"));
             for col in all {
                 let available = col.is_available();
                 let mark = if available { "✓" } else { "✗" };
@@ -561,7 +561,48 @@ fn chrono_now() -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap();
-    format!("{}", now.as_secs())
+    let secs = now.as_secs();
+    let (year, month, day, hour, min, sec) = unix_to_datetime(secs);
+    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", year, month, day, hour, min, sec)
+}
+
+fn unix_to_datetime(secs: u64) -> (u64, u64, u64, u64, u64, u64) {
+    let days = secs / 86400;
+    let time_of_day = secs % 86400;
+    let hour = time_of_day / 3600;
+    let min = (time_of_day % 3600) / 60;
+    let sec = time_of_day % 60;
+
+    let mut y = 1970u64;
+    let mut remaining = days;
+    loop {
+        let days_in_year = if is_leap(y) { 366 } else { 365 };
+        if remaining < days_in_year {
+            break;
+        }
+        remaining -= days_in_year;
+        y += 1;
+    }
+    let leap = is_leap(y);
+    let month_days: [u64; 12] = [
+        31,
+        if leap { 29 } else { 28 },
+        31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+    ];
+    let mut m = 1u64;
+    for &d in &month_days {
+        if remaining < d {
+            break;
+        }
+        remaining -= d;
+        m += 1;
+    }
+    let d = remaining + 1;
+    (y, m, d, hour, min, sec)
+}
+
+fn is_leap(year: u64) -> bool {
+    (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
 }
 
 fn print_human_summary(summary: &MetricsSummary) {
@@ -650,23 +691,11 @@ fn print_human_summary(summary: &MetricsSummary) {
 
 fn print_human_report(report: &QualityReport) {
     println!("────────────────────────────────────────────────────");
-    let c = &report.summary;
-    print!("  fmt        ");
-    print_report_status(true, "");
-    print!("  clippy     ");
-    print_report_status(true, "(0 warnings)");
-    print!("  tests      ");
-    print_report_status(true, &format!("({} passed, 0 failed)", c.collectors_passed));
-    print!("  coverage   ");
-    print_report_status(true, "(87.4% ≥ 85.0% baseline)");
-    print!("  deny       ");
-    print_report_status(true, "");
-    print!("  audit      ");
-    print_report_status(true, "");
-    print!("  hack       ");
-    print_report_status(true, "");
-    print!("  mutants    ");
-    print_report_status(true, "");
+    let s = &report.summary;
+    println!(
+        "  collectors: {} run, {} passed, {} failed, {} skipped",
+        s.collectors_run, s.collectors_passed, s.collectors_failed, s.collectors_skipped
+    );
 
     println!("────────────────────────────────────────────────────");
     println!("  gate result: {:?}", report.gate_result);
@@ -704,11 +733,4 @@ fn print_status(status: &CollectorStatus, detail: &str) {
     }
 }
 
-fn print_report_status(passed: bool, detail: &str) {
-    let mark = if passed { "✓ pass" } else { "✗ FAIL" };
-    if detail.is_empty() {
-        println!("{}", mark);
-    } else {
-        println!("{}      {}", mark, detail);
-    }
-}
+
