@@ -95,6 +95,10 @@ struct Cli {
     #[arg(long, global = true)]
     json: bool,
 
+    /// Show detailed violations with file:line info
+    #[arg(long, short = 'v', global = true)]
+    verbose: bool,
+
     /// Disable a specific collector (can be specified multiple times)
     #[arg(long, global = true, value_delimiter = ',')]
     disable_collector: Vec<String>,
@@ -252,7 +256,7 @@ fn main() -> Result<()> {
             if cli.json {
                 println!("{}", json);
             } else {
-                print_human_report(&report, Some(&summary));
+                print_human_report(&report, Some(&summary), cli.verbose);
             }
 
             if matches!(report.gate_result, GateResult::Fail) {
@@ -280,7 +284,7 @@ fn main() -> Result<()> {
             if cli.json {
                 println!("{}", report_json);
             } else {
-                print_human_report(&report, Some(&summary));
+                print_human_report(&report, Some(&summary), cli.verbose);
             }
 
             if matches!(report.gate_result, GateResult::Fail) {
@@ -466,7 +470,7 @@ fn print_human_summary(summary: &MetricsSummary) {
     );
 }
 
-fn print_human_report(report: &QualityReport, summary: Option<&MetricsSummary>) {
+fn print_human_report(report: &QualityReport, summary: Option<&MetricsSummary>, verbose: bool) {
     println!("────────────────────────────────────────────────────");
     let s = &report.summary;
     println!(
@@ -496,45 +500,47 @@ fn print_human_report(report: &QualityReport, summary: Option<&MetricsSummary>) 
     }
 
     // Show detailed violations from metrics if available
-    if let Some(metrics) = summary {
-        let size_v = &metrics.collectors.size.violations;
-        if !size_v.is_empty() {
-            println!("\nsize violations:");
-            for v in size_v {
-                let loc = if v.function.is_some() {
-                    format!("{}:{}", v.file, v.line)
-                } else {
-                    v.file.clone()
-                };
+    if verbose {
+        if let Some(metrics) = summary {
+            let size_v = &metrics.collectors.size.violations;
+            if !size_v.is_empty() {
+                println!("\nsize violations:");
+                for v in size_v {
+                    let loc = if v.function.is_some() {
+                        format!("{}:{}", v.file, v.line)
+                    } else {
+                        v.file.clone()
+                    };
+                    println!(
+                        "  {}:{}  {} ({} > {})  [{}]",
+                        v.rule_id, loc, v.message, v.actual, v.threshold, v.severity
+                    );
+                }
+            }
+
+            let cx_v = &metrics.collectors.complexity.violations;
+            if !cx_v.is_empty() {
+                println!("\ncomplexity violations:");
+                for v in cx_v {
+                    let loc = if v.function.is_some() {
+                        format!("{}:{}", v.file, v.line)
+                    } else {
+                        v.file.clone()
+                    };
+                    println!(
+                        "  {}:{}  {} ({} > {})  [{}]",
+                        v.rule_id, loc, v.message, v.actual, v.threshold, v.severity
+                    );
+                }
+            }
+
+            if metrics.collectors.loc.long_lines > 0 {
                 println!(
-                    "  {}:{}  {} ({} > {})  [{}]",
-                    v.rule_id, loc, v.message, v.actual, v.threshold, v.severity
+                    "\nloc: {} lines exceed max length ({})",
+                    metrics.collectors.loc.long_lines,
+                    metrics.collectors.loc.max_line_length_found
                 );
             }
-        }
-
-        let cx_v = &metrics.collectors.complexity.violations;
-        if !cx_v.is_empty() {
-            println!("\ncomplexity violations:");
-            for v in cx_v {
-                let loc = if v.function.is_some() {
-                    format!("{}:{}", v.file, v.line)
-                } else {
-                    v.file.clone()
-                };
-                println!(
-                    "  {}:{}  {} ({} > {})  [{}]",
-                    v.rule_id, loc, v.message, v.actual, v.threshold, v.severity
-                );
-            }
-        }
-
-        if metrics.collectors.loc.long_lines > 0 {
-            println!(
-                "\nloc: {} lines exceed max length ({})",
-                metrics.collectors.loc.long_lines,
-                metrics.collectors.loc.max_line_length_found
-            );
         }
     }
 }

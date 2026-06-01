@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1",
-  "generatedAt": "2026-06-01T20:37:05Z",
+  "generatedAt": "2026-06-01T20:49:52Z",
   "rustqutyVersion": "0.3.1",
   "project": {
     "name": "rustquty",
@@ -50,17 +50,17 @@
     },
     "duplicates": {
       "status": "fail",
-      "totalLines": 5850,
-      "duplicateLines": 3145,
+      "totalLines": 5856,
+      "duplicateLines": 3146,
       "filesWithDuplicates": 27,
       "duplicateFiles": []
     },
     "loc": {
       "status": "fail",
-      "totalLines": 5850,
-      "codeLines": 4992,
-      "commentLines": 239,
-      "blankLines": 619,
+      "totalLines": 5856,
+      "codeLines": 4996,
+      "commentLines": 240,
+      "blankLines": 620,
       "longLines": 32,
       "maxLineLengthFound": 269,
       "maxLineLengthAllowed": 0,
@@ -149,7 +149,7 @@
         {
           "ruleId": "size:max-lines-per-function",
           "file": "main.rs",
-          "line": 134,
+          "line": 138,
           "function": "main",
           "message": "Function `main` has 193 lines; maximum allowed is 80",
           "actual": 193,
@@ -159,7 +159,7 @@
         {
           "ruleId": "size:max-lines-per-function",
           "file": "main.rs",
-          "line": 385,
+          "line": 389,
           "function": "print_human_summary",
           "message": "Function `print_human_summary` has 83 lines; maximum allowed is 80",
           "actual": 83,
@@ -208,7 +208,7 @@
         {
           "ruleId": "complexity:max-cyclomatic-per-function",
           "file": "main.rs",
-          "line": 134,
+          "line": 138,
           "function": "main",
           "message": "Function `main` has cyclomatic complexity 50; maximum allowed is 15",
           "actual": 50,
