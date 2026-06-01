@@ -141,10 +141,16 @@ fn main() -> Result<()> {
         .output_dir
         .unwrap_or_else(|| project_dir.join("quality"));
 
-    // Load rustquty.toml config if present (Phase 6)
+    // Load rustquty.toml config if present
     let config_path = project_dir.join("rustquty.toml");
     let config = if config_path.exists() {
-        Config::load(&config_path).ok()
+        match Config::load(&config_path) {
+            Ok(c) => Some(c),
+            Err(e) => {
+                eprintln!("warning: failed to load {}: {}", config_path.display(), e);
+                None
+            }
+        }
     } else {
         None
     };
@@ -167,8 +173,9 @@ fn main() -> Result<()> {
 
     // Apply --disable-collector flags
     for name in &cli.disable_collector {
-        if let Ok(cn) = name.parse() {
-            ctx.disable_collector(cn);
+        match name.parse::<CollectorName>() {
+            Ok(cn) => ctx.disable_collector(cn),
+            Err(_) => eprintln!("warning: unknown collector '{}', ignoring", name),
         }
     }
 
