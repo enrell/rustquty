@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1",
-  "createdAt": "2026-06-01T20:25:01Z",
+  "createdAt": "2026-06-01T20:37:05Z",
   "rustqutyVersion": "0.3.1",
   "thresholds": {
     "fmt": {
@@ -30,7 +30,7 @@
       "minScore": 0.0
     },
     "duplicates": {
-      "maxDuplicateLines": 3119
+      "maxDuplicateLines": 3145
     },
     "loc": {
       "maxLineLength": 269

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1",
-  "generatedAt": "2026-06-01T20:25:01Z",
+  "generatedAt": "2026-06-01T20:37:05Z",
   "rustqutyVersion": "0.3.1",
   "project": {
     "name": "rustquty",
@@ -50,17 +50,17 @@
     },
     "duplicates": {
       "status": "fail",
-      "totalLines": 5807,
-      "duplicateLines": 3119,
+      "totalLines": 5850,
+      "duplicateLines": 3145,
       "filesWithDuplicates": 27,
       "duplicateFiles": []
     },
     "loc": {
       "status": "fail",
-      "totalLines": 5807,
-      "codeLines": 4953,
-      "commentLines": 238,
-      "blankLines": 616,
+      "totalLines": 5850,
+      "codeLines": 4992,
+      "commentLines": 239,
+      "blankLines": 619,
       "longLines": 32,
       "maxLineLengthFound": 269,
       "maxLineLengthAllowed": 0,
