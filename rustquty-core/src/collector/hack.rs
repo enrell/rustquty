@@ -31,8 +31,8 @@ impl Collector for HackCollector {
     }
 
     fn is_available(&self) -> bool {
-        Command::new("cargo-hack")
-            .arg("--version")
+        Command::new("cargo")
+            .args(["hack", "--version"])
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false)
@@ -40,8 +40,8 @@ impl Collector for HackCollector {
 
     fn collect(&self, ctx: &Context) -> Result<CollectorOutput, CollectorError> {
         let start = std::time::Instant::now();
-        let output = Command::new("cargo-hack")
-            .args(["check", "--feature-powerset", "--no-dev-deps"])
+        let output = Command::new("cargo")
+            .args(["hack", "check", "--feature-powerset", "--no-dev-deps"])
             .current_dir(&ctx.workspace_root)
             .output()
             .map_err(|e| CollectorError::IoError(e.to_string()))?;

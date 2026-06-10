@@ -64,7 +64,7 @@ impl Collector for TestCollector {
 
     fn is_available(&self) -> bool {
         Command::new("cargo")
-            .args(["test", "--no-run", "--version"])
+            .arg("--version")
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false)

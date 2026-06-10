@@ -38,8 +38,8 @@ impl Collector for MutantsCollector {
     }
 
     fn is_available(&self) -> bool {
-        Command::new("cargo-mutants")
-            .arg("--version")
+        Command::new("cargo")
+            .args(["mutants", "--version"])
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false)
@@ -49,8 +49,8 @@ impl Collector for MutantsCollector {
         let start = std::time::Instant::now();
         let output_path = ctx.output_dir.join("mutants.out");
 
-        let output = Command::new("cargo-mutants")
-            .args(["--output", output_path.to_string_lossy().as_ref()])
+        let output = Command::new("cargo")
+            .args(["mutants", "--output", output_path.to_string_lossy().as_ref()])
             .current_dir(&ctx.workspace_root)
             .output()
             .map_err(|e| CollectorError::IoError(e.to_string()))?;
