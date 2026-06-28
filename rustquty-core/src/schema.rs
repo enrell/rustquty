@@ -128,6 +128,26 @@ pub struct DuplicatesResult {
     pub files_with_duplicates: u32,
     #[serde(default)]
     pub duplicate_files: Vec<String>,
+    #[serde(default)]
+    pub duplicate_blocks: Vec<DuplicateBlock>,
+    #[serde(default)]
+    pub duplicate_blocks_omitted: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DuplicateBlock {
+    pub lines: u32,
+    pub tokens: u32,
+    pub occurrences: Vec<DuplicateOccurrence>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DuplicateOccurrence {
+    pub file: String,
+    pub start_line: u32,
+    pub end_line: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -146,6 +166,19 @@ pub struct LocResult {
     pub files_with_long_lines: u32,
     #[serde(default)]
     pub long_line_files: Vec<String>,
+    #[serde(default)]
+    pub long_line_details: Vec<LongLineDetail>,
+    #[serde(default)]
+    pub long_line_details_omitted: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct LongLineDetail {
+    pub file: String,
+    pub line: u32,
+    pub length: usize,
+    pub threshold: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

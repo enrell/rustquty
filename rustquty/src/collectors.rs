@@ -6,11 +6,12 @@ use rustquty_core::collector::{
     fmt::FmtCollector, hack::HackCollector, loc::LocCollector, mutants::MutantsCollector,
     size::SizeCollector, tests::TestCollector,
 };
-use rustquty_core::config::{ComplexityConfig, SizeConfig};
+use rustquty_core::config::{ComplexityConfig, LocConfig, SizeConfig};
 
 pub fn all_collectors(
     size_config: Option<SizeConfig>,
     complexity_config: Option<ComplexityConfig>,
+    loc_config: Option<LocConfig>,
 ) -> Vec<Box<dyn Collector>> {
     vec![
         Box::new(FmtCollector::new()),
@@ -22,7 +23,10 @@ pub fn all_collectors(
         Box::new(HackCollector::new()),
         Box::new(MutantsCollector::new()),
         Box::new(DuplicatesCollector::new()),
-        Box::new(LocCollector::new()),
+        Box::new(match loc_config {
+            Some(cfg) => LocCollector::with_config(cfg),
+            None => LocCollector::new(),
+        }),
         Box::new(match size_config {
             Some(cfg) => SizeCollector::with_config(cfg),
             None => SizeCollector::new(),

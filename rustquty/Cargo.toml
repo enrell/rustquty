@@ -1,6 +1,6 @@
 [package]
 name = "rustquty"
-version = "0.4.2"
+version = "0.4.3"
 edition = "2024"
 description = "Local-first quality scanner for Rust projects"
 license = "MIT"
@@ -14,7 +14,7 @@ name = "rustquty"
 path = "src/main.rs"
 
 [dependencies]
-rustquty-core = { version = "0.4.2", path = "../rustquty-core" }
+rustquty-core = { version = "0.4.3", path = "../rustquty-core" }
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 serde_json = "1"

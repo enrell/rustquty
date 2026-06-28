@@ -168,20 +168,34 @@ fn main() -> Result<()> {
 
     // Extract size config from TOML if present, falling back to [gate.defaults].
     let defaults = config.as_ref().and_then(|c| c.gate.defaults.as_ref());
-    let size_config = config.as_ref().and_then(|c| c.gate.size.clone()).or_else(|| {
-        defaults.map(|d| rustquty_core::config::SizeConfig {
-            max_lines_per_file: d.max_lines_per_file,
-            max_code_lines_per_file: d.max_code_lines_per_file,
-            max_lines_per_function: d.max_lines_per_function,
-            max_parameters_per_function: d.max_parameters_per_function,
-        })
-    });
-    let complexity_config = config.as_ref().and_then(|c| c.gate.complexity.clone()).or_else(|| {
-        defaults.map(|d| rustquty_core::config::ComplexityConfig {
-            max_cyclomatic_per_function: d.max_cyclomatic_per_function,
-            max_nesting_depth: d.max_nesting_depth,
-        })
-    });
+    let size_config = config
+        .as_ref()
+        .and_then(|c| c.gate.size.clone())
+        .or_else(|| {
+            defaults.map(|d| rustquty_core::config::SizeConfig {
+                max_lines_per_file: d.max_lines_per_file,
+                max_code_lines_per_file: d.max_code_lines_per_file,
+                max_lines_per_function: d.max_lines_per_function,
+                max_parameters_per_function: d.max_parameters_per_function,
+            })
+        });
+    let complexity_config = config
+        .as_ref()
+        .and_then(|c| c.gate.complexity.clone())
+        .or_else(|| {
+            defaults.map(|d| rustquty_core::config::ComplexityConfig {
+                max_cyclomatic_per_function: d.max_cyclomatic_per_function,
+                max_nesting_depth: d.max_nesting_depth,
+            })
+        });
+    let loc_config = config
+        .as_ref()
+        .and_then(|c| c.gate.loc.clone())
+        .or_else(|| {
+            defaults.map(|d| rustquty_core::config::LocConfig {
+                max_line_length: d.max_line_length,
+            })
+        });
 
     // Build GateConfig from [gate.defaults] in TOML (absolute thresholds).
     let gate_config = defaults.map(|d| rustquty_core::gate::GateConfig {
@@ -228,7 +242,12 @@ fn main() -> Result<()> {
         }
 
         Commands::Collect => {
-            let summary = run_collectors(&ctx, size_config.clone(), complexity_config.clone())?;
+            let summary = run_collectors(
+                &ctx,
+                size_config.clone(),
+                complexity_config.clone(),
+                loc_config.clone(),
+            )?;
             let json = serde_json::to_string_pretty(&summary)?;
             let path = output_dir.join("metricsSummary.json");
             std::fs::write(&path, &json)?;
@@ -265,7 +284,12 @@ fn main() -> Result<()> {
         }
 
         Commands::Qa => {
-            let summary = run_collectors(&ctx, size_config.clone(), complexity_config.clone())?;
+            let summary = run_collectors(
+                &ctx,
+                size_config.clone(),
+                complexity_config.clone(),
+                loc_config.clone(),
+            )?;
             let json = serde_json::to_string_pretty(&summary)?;
             let path = output_dir.join("metricsSummary.json");
             std::fs::write(&path, &json)?;
@@ -311,8 +335,11 @@ fn main() -> Result<()> {
         }
 
         Commands::Doctor => {
-            let all = collectors::all_collectors(None, None);
-            println!("rustquty {} — collector availability\n", env!("CARGO_PKG_VERSION"));
+            let all = collectors::all_collectors(None, None, None);
+            println!(
+                "rustquty {} — collector availability\n",
+                env!("CARGO_PKG_VERSION")
+            );
             for col in all {
                 let available = col.is_available();
                 let mark = if available { "✓" } else { "✗" };
@@ -333,9 +360,10 @@ fn run_collectors(
     ctx: &Context,
     size_config: Option<SizeConfig>,
     complexity_config: Option<ComplexityConfig>,
+    loc_config: Option<rustquty_core::config::LocConfig>,
 ) -> Result<MetricsSummary> {
     let all: Vec<Box<dyn rustquty_core::collector::Collector>> =
-        collectors::all_collectors(size_config, complexity_config);
+        collectors::all_collectors(size_config, complexity_config, loc_config);
 
     // Apply profile filtering
     let enabled: Vec<Box<dyn rustquty_core::collector::Collector>> = all
@@ -538,8 +566,48 @@ fn print_human_report(report: &QualityReport, summary: Option<&MetricsSummary>, 
                 println!(
                     "\nloc: {} lines exceed max length ({})",
                     metrics.collectors.loc.long_lines,
-                    metrics.collectors.loc.max_line_length_found
+                    metrics.collectors.loc.max_line_length_allowed
                 );
+                for detail in &metrics.collectors.loc.long_line_details {
+                    println!(
+                        "  {}:{}  length {} > {}",
+                        detail.file, detail.line, detail.length, detail.threshold
+                    );
+                }
+                if metrics.collectors.loc.long_line_details_omitted > 0 {
+                    println!(
+                        "  ... {} additional long line(s) omitted",
+                        metrics.collectors.loc.long_line_details_omitted
+                    );
+                }
+            }
+
+            if metrics.collectors.duplicates.duplicate_lines > 0 {
+                println!(
+                    "\nduplicates: {} duplicate line(s) across {} file(s)",
+                    metrics.collectors.duplicates.duplicate_lines,
+                    metrics.collectors.duplicates.files_with_duplicates
+                );
+                for block in &metrics.collectors.duplicates.duplicate_blocks {
+                    println!(
+                        "  block: {} line(s), {} token(s), {} occurrence(s)",
+                        block.lines,
+                        block.tokens,
+                        block.occurrences.len()
+                    );
+                    for occurrence in &block.occurrences {
+                        println!(
+                            "    {}:{}-{}",
+                            occurrence.file, occurrence.start_line, occurrence.end_line
+                        );
+                    }
+                }
+                if metrics.collectors.duplicates.duplicate_blocks_omitted > 0 {
+                    println!(
+                        "  ... {} additional duplicate block(s) omitted",
+                        metrics.collectors.duplicates.duplicate_blocks_omitted
+                    );
+                }
             }
         }
     }
@@ -558,5 +626,3 @@ fn print_status(status: &CollectorStatus, detail: &str) {
         println!("{}      {}", mark, detail);
     }
 }
-
-

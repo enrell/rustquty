@@ -16,9 +16,10 @@ pub mod tests;
 use crate::context::Context;
 use crate::schema::{
     AuditResult, ClippyLint, ClippyResult, CollectorStatus, ComplexityResult, CoverageResult,
-    DenyResult, DuplicatesResult, FmtResult, HackResult, LocResult, MetricsSummary, MutantsResult,
-    ProjectInfo, SizeResult, TestResult,
+    DenyResult, DuplicateBlock, DuplicateOccurrence, DuplicatesResult, FmtResult, HackResult,
+    LocResult, LongLineDetail, MetricsSummary, MutantsResult, ProjectInfo, SizeResult, TestResult,
 };
+use std::path::Path;
 
 pub trait Collector: Send + Sync {
     fn name(&self) -> &'static str;
@@ -44,6 +45,17 @@ pub enum CollectorError {
     ParseError(String),
     #[error("I/O error: {0}")]
     IoError(String),
+}
+
+pub(crate) fn is_scannable_rust_file(path: &Path) -> bool {
+    if !path.is_file() || path.extension().is_none_or(|e| e != "rs") {
+        return false;
+    }
+
+    !path.components().any(|component| {
+        let name = component.as_os_str();
+        name == "target" || name == ".git" || name == "quality"
+    })
 }
 
 pub struct MockCollector {
@@ -185,6 +197,8 @@ pub fn assemble_results(
         duplicate_lines: 0,
         files_with_duplicates: 0,
         duplicate_files: vec![],
+        duplicate_blocks: vec![],
+        duplicate_blocks_omitted: 0,
     };
     let mut loc_result = LocResult {
         status: CollectorStatus::Skipped,
@@ -198,6 +212,8 @@ pub fn assemble_results(
         files: 0,
         files_with_long_lines: 0,
         long_line_files: vec![],
+        long_line_details: vec![],
+        long_line_details_omitted: 0,
     };
     let mut size_result = SizeResult {
         status: CollectorStatus::Skipped,
@@ -265,8 +281,7 @@ pub fn assemble_results(
                 if let Some(ref d) = details {
                     audit_result.vulnerability_count =
                         d["vulnerabilityCount"].as_u64().unwrap_or(0) as u32;
-                    audit_result.critical_count =
-                        d["criticalCount"].as_u64().unwrap_or(0) as u32;
+                    audit_result.critical_count = d["criticalCount"].as_u64().unwrap_or(0) as u32;
                 }
                 audit_result.status.clone_from(&output.status);
             }
@@ -285,6 +300,41 @@ pub fn assemble_results(
                         d["duplicateLines"].as_u64().unwrap_or(0) as u32;
                     duplicates_result.files_with_duplicates =
                         d["filesWithDuplicates"].as_u64().unwrap_or(0) as u32;
+                    if let Some(arr) = d["duplicateFiles"].as_array() {
+                        duplicates_result.duplicate_files = arr
+                            .iter()
+                            .filter_map(|v| v.as_str().map(String::from))
+                            .collect();
+                    }
+                    if let Some(arr) = d["duplicateBlocks"].as_array() {
+                        duplicates_result.duplicate_blocks = arr
+                            .iter()
+                            .map(|block| DuplicateBlock {
+                                lines: block["lines"].as_u64().unwrap_or(0) as u32,
+                                tokens: block["tokens"].as_u64().unwrap_or(0) as u32,
+                                occurrences: block["occurrences"]
+                                    .as_array()
+                                    .map(|occurrences| {
+                                        occurrences
+                                            .iter()
+                                            .map(|occ| DuplicateOccurrence {
+                                                file: occ["file"]
+                                                    .as_str()
+                                                    .unwrap_or("")
+                                                    .to_string(),
+                                                start_line: occ["startLine"].as_u64().unwrap_or(0)
+                                                    as u32,
+                                                end_line: occ["endLine"].as_u64().unwrap_or(0)
+                                                    as u32,
+                                            })
+                                            .collect()
+                                    })
+                                    .unwrap_or_default(),
+                            })
+                            .collect();
+                    }
+                    duplicates_result.duplicate_blocks_omitted =
+                        d["duplicateBlocksOmitted"].as_u64().unwrap_or(0) as u32;
                 }
                 duplicates_result.status.clone_from(&output.status);
             }
@@ -297,7 +347,30 @@ pub fn assemble_results(
                     loc_result.long_lines = d["longLines"].as_u64().unwrap_or(0) as u32;
                     loc_result.max_line_length_found =
                         d["maxLineLengthFound"].as_u64().unwrap_or(0) as usize;
+                    loc_result.max_line_length_allowed =
+                        d["maxLineLengthAllowed"].as_u64().unwrap_or(0) as usize;
                     loc_result.files = d["files"].as_u64().unwrap_or(0) as u32;
+                    loc_result.files_with_long_lines =
+                        d["filesWithLongLines"].as_u64().unwrap_or(0) as u32;
+                    if let Some(arr) = d["longLineFiles"].as_array() {
+                        loc_result.long_line_files = arr
+                            .iter()
+                            .filter_map(|v| v.as_str().map(String::from))
+                            .collect();
+                    }
+                    if let Some(arr) = d["longLineDetails"].as_array() {
+                        loc_result.long_line_details = arr
+                            .iter()
+                            .map(|detail| LongLineDetail {
+                                file: detail["file"].as_str().unwrap_or("").to_string(),
+                                line: detail["line"].as_u64().unwrap_or(0) as u32,
+                                length: detail["length"].as_u64().unwrap_or(0) as usize,
+                                threshold: detail["threshold"].as_u64().unwrap_or(0) as usize,
+                            })
+                            .collect();
+                    }
+                    loc_result.long_line_details_omitted =
+                        d["longLineDetailsOmitted"].as_u64().unwrap_or(0) as u32;
                 }
                 loc_result.status.clone_from(&output.status);
             }
@@ -427,5 +500,68 @@ mod collector_tests {
         };
         assert_eq!(mock.name(), "test");
         assert!(mock.is_available());
+    }
+
+    #[test]
+    fn test_assemble_results_preserves_loc_and_duplicate_detail_fields() {
+        let duplicates = CollectorOutput {
+            status: CollectorStatus::Fail,
+            duration_ms: 1,
+            stdout: serde_json::json!({
+                "totalLines": 20,
+                "duplicateLines": 12,
+                "filesWithDuplicates": 2,
+                "duplicateFiles": ["src/a.rs", "src/b.rs"],
+                "duplicateBlocks": [{
+                    "lines": 6,
+                    "tokens": 100,
+                    "occurrences": [
+                        { "file": "src/a.rs", "startLine": 1, "endLine": 6 },
+                        { "file": "src/b.rs", "startLine": 1, "endLine": 6 }
+                    ]
+                }],
+                "duplicateBlocksOmitted": 3
+            })
+            .to_string(),
+            stderr: String::new(),
+        };
+        let loc = CollectorOutput {
+            status: CollectorStatus::Fail,
+            duration_ms: 1,
+            stdout: serde_json::json!({
+                "totalLines": 20,
+                "codeLines": 18,
+                "commentLines": 1,
+                "blankLines": 1,
+                "longLines": 2,
+                "maxLineLengthFound": 140,
+                "maxLineLengthAllowed": 120,
+                "files": 2,
+                "filesWithLongLines": 1,
+                "longLineFiles": ["src/a.rs"],
+                "longLineDetails": [
+                    { "file": "src/a.rs", "line": 10, "length": 140, "threshold": 120 }
+                ],
+                "longLineDetailsOmitted": 1
+            })
+            .to_string(),
+            stderr: String::new(),
+        };
+
+        let summary = assemble_results(
+            &[("duplicates", duplicates), ("loc", loc)],
+            "project",
+            "2024",
+            "/tmp/project",
+        );
+
+        assert_eq!(summary.collectors.duplicates.duplicate_files.len(), 2);
+        assert_eq!(summary.collectors.duplicates.duplicate_blocks.len(), 1);
+        assert_eq!(summary.collectors.duplicates.duplicate_blocks_omitted, 3);
+        assert_eq!(summary.collectors.loc.max_line_length_allowed, 120);
+        assert_eq!(summary.collectors.loc.files_with_long_lines, 1);
+        assert_eq!(summary.collectors.loc.long_line_files, vec!["src/a.rs"]);
+        assert_eq!(summary.collectors.loc.long_line_details.len(), 1);
+        assert_eq!(summary.collectors.loc.long_line_details_omitted, 1);
     }
 }

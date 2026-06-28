@@ -51,7 +51,7 @@ impl BaselineWriter {
                 max_duplicate_lines: summary.collectors.duplicates.duplicate_lines,
             },
             loc: LocThreshold {
-                max_line_length: summary.collectors.loc.max_line_length_found.max(120),
+                max_line_length: summary.collectors.loc.max_line_length_allowed.max(120),
             },
             size: SizeThreshold {
                 max_lines_per_file: summary.collectors.size.max_lines_per_file.into(),
@@ -128,7 +128,7 @@ impl BaselineWriter {
                 max_duplicate_lines: summary.collectors.duplicates.duplicate_lines,
             },
             loc: LocThreshold {
-                max_line_length: summary.collectors.loc.max_line_length_found.max(120),
+                max_line_length: summary.collectors.loc.max_line_length_allowed.max(120),
             },
             size: SizeThreshold {
                 max_lines_per_file: summary.collectors.size.max_lines_per_file.into(),
@@ -273,6 +273,8 @@ mod tests {
                     duplicate_lines: 5,
                     files_with_duplicates: 2,
                     duplicate_files: vec!["src/a.rs".to_string()],
+                    duplicate_blocks: vec![],
+                    duplicate_blocks_omitted: 0,
                 },
                 loc: LocResult {
                     status: CollectorStatus::Pass,
@@ -281,11 +283,13 @@ mod tests {
                     comment_lines: 100,
                     blank_lines: 100,
                     long_lines: 0,
-                    max_line_length_found: 100,
+                    max_line_length_found: 284,
                     max_line_length_allowed: 120,
                     files: 10,
                     files_with_long_lines: 0,
                     long_line_files: vec![],
+                    long_line_details: vec![],
+                    long_line_details_omitted: 0,
                 },
                 size: SizeResult {
                     status: CollectorStatus::Pass,
@@ -318,6 +322,7 @@ mod tests {
         assert_eq!(baseline.thresholds.clippy.max_warnings, 3);
         assert_eq!(baseline.thresholds.tests.max_failures, 1);
         assert!((baseline.thresholds.coverage.min_line_percent - 85.5).abs() < f64::EPSILON);
+        assert_eq!(baseline.thresholds.loc.max_line_length, 120);
     }
 
     // --- Regression tests ---
@@ -340,18 +345,87 @@ mod tests {
                 workspace_root: "/tmp".to_string(),
             },
             collectors: CollectorsSummary {
-                fmt: FmtResult { status: CollectorStatus::Pass, details: Default::default() },
-                clippy: ClippyResult { status: CollectorStatus::Pass, warning_count: 0, details: vec![] },
-                tests: TestResult { status: CollectorStatus::Pass, passed: 10, failed: 0, ignored: 0, runner: None },
-                coverage: CoverageResult { status: CollectorStatus::Pass, line_percent: 90.0 },
-                deny: DenyResult { status: CollectorStatus::Pass, banned_count: 0, license_violations: 0 },
-                audit: AuditResult { status: CollectorStatus::Pass, vulnerability_count: 0, critical_count: 0 },
-                hack: HackResult { status: CollectorStatus::Pass, feature_combinations_tested: 8 },
-                mutants: MutantsResult { status: CollectorStatus::Pass, mutation_score: 0.9, caught: 90, missed: 10 },
-                duplicates: DuplicatesResult { status: CollectorStatus::Pass, total_lines: 500, duplicate_lines: 0, files_with_duplicates: 0, duplicate_files: vec![] },
-                loc: LocResult { status: CollectorStatus::Pass, total_lines: 500, code_lines: 400, comment_lines: 50, blank_lines: 50, long_lines: 0, max_line_length_found: 80, max_line_length_allowed: 120, files: 5, files_with_long_lines: 0, long_line_files: vec![] },
-                size: SizeResult { status: CollectorStatus::Pass, files: 5, max_lines_per_file: 200, max_code_lines_per_file: 150, max_lines_per_function: 40, max_parameters_per_function: 3, violations: vec![] },
-                complexity: crate::schema::ComplexityResult { status: CollectorStatus::Pass, functions: 5, max_cyclomatic_complexity: 3, max_nesting_depth: 2, complex_functions: 0, violations: vec![] },
+                fmt: FmtResult {
+                    status: CollectorStatus::Pass,
+                    details: Default::default(),
+                },
+                clippy: ClippyResult {
+                    status: CollectorStatus::Pass,
+                    warning_count: 0,
+                    details: vec![],
+                },
+                tests: TestResult {
+                    status: CollectorStatus::Pass,
+                    passed: 10,
+                    failed: 0,
+                    ignored: 0,
+                    runner: None,
+                },
+                coverage: CoverageResult {
+                    status: CollectorStatus::Pass,
+                    line_percent: 90.0,
+                },
+                deny: DenyResult {
+                    status: CollectorStatus::Pass,
+                    banned_count: 0,
+                    license_violations: 0,
+                },
+                audit: AuditResult {
+                    status: CollectorStatus::Pass,
+                    vulnerability_count: 0,
+                    critical_count: 0,
+                },
+                hack: HackResult {
+                    status: CollectorStatus::Pass,
+                    feature_combinations_tested: 8,
+                },
+                mutants: MutantsResult {
+                    status: CollectorStatus::Pass,
+                    mutation_score: 0.9,
+                    caught: 90,
+                    missed: 10,
+                },
+                duplicates: DuplicatesResult {
+                    status: CollectorStatus::Pass,
+                    total_lines: 500,
+                    duplicate_lines: 0,
+                    files_with_duplicates: 0,
+                    duplicate_files: vec![],
+                    duplicate_blocks: vec![],
+                    duplicate_blocks_omitted: 0,
+                },
+                loc: LocResult {
+                    status: CollectorStatus::Pass,
+                    total_lines: 500,
+                    code_lines: 400,
+                    comment_lines: 50,
+                    blank_lines: 50,
+                    long_lines: 0,
+                    max_line_length_found: 80,
+                    max_line_length_allowed: 120,
+                    files: 5,
+                    files_with_long_lines: 0,
+                    long_line_files: vec![],
+                    long_line_details: vec![],
+                    long_line_details_omitted: 0,
+                },
+                size: SizeResult {
+                    status: CollectorStatus::Pass,
+                    files: 5,
+                    max_lines_per_file: 200,
+                    max_code_lines_per_file: 150,
+                    max_lines_per_function: 40,
+                    max_parameters_per_function: 3,
+                    violations: vec![],
+                },
+                complexity: crate::schema::ComplexityResult {
+                    status: CollectorStatus::Pass,
+                    functions: 5,
+                    max_cyclomatic_complexity: 3,
+                    max_nesting_depth: 2,
+                    complex_functions: 0,
+                    violations: vec![],
+                },
             },
         };
 
@@ -400,18 +474,87 @@ mod tests {
                 workspace_root: "/tmp".to_string(),
             },
             collectors: CollectorsSummary {
-                fmt: FmtResult { status: CollectorStatus::Pass, details: Default::default() },
-                clippy: ClippyResult { status: CollectorStatus::Pass, warning_count: 0, details: vec![] },
-                tests: TestResult { status: CollectorStatus::Pass, passed: 10, failed: 0, ignored: 0, runner: None },
-                coverage: CoverageResult { status: CollectorStatus::Pass, line_percent: 90.0 },
-                deny: DenyResult { status: CollectorStatus::Pass, banned_count: 0, license_violations: 0 },
-                audit: AuditResult { status: CollectorStatus::Pass, vulnerability_count: 0, critical_count: 0 },
-                hack: HackResult { status: CollectorStatus::Pass, feature_combinations_tested: 8 },
-                mutants: MutantsResult { status: CollectorStatus::Pass, mutation_score: 0.9, caught: 90, missed: 10 },
-                duplicates: DuplicatesResult { status: CollectorStatus::Pass, total_lines: 500, duplicate_lines: 0, files_with_duplicates: 0, duplicate_files: vec![] },
-                loc: LocResult { status: CollectorStatus::Pass, total_lines: 500, code_lines: 400, comment_lines: 50, blank_lines: 50, long_lines: 0, max_line_length_found: 80, max_line_length_allowed: 120, files: 5, files_with_long_lines: 0, long_line_files: vec![] },
-                size: SizeResult { status: CollectorStatus::Pass, files: 5, max_lines_per_file: 200, max_code_lines_per_file: 150, max_lines_per_function: 40, max_parameters_per_function: 3, violations: vec![] },
-                complexity: crate::schema::ComplexityResult { status: CollectorStatus::Pass, functions: 5, max_cyclomatic_complexity: 3, max_nesting_depth: 2, complex_functions: 0, violations: vec![] },
+                fmt: FmtResult {
+                    status: CollectorStatus::Pass,
+                    details: Default::default(),
+                },
+                clippy: ClippyResult {
+                    status: CollectorStatus::Pass,
+                    warning_count: 0,
+                    details: vec![],
+                },
+                tests: TestResult {
+                    status: CollectorStatus::Pass,
+                    passed: 10,
+                    failed: 0,
+                    ignored: 0,
+                    runner: None,
+                },
+                coverage: CoverageResult {
+                    status: CollectorStatus::Pass,
+                    line_percent: 90.0,
+                },
+                deny: DenyResult {
+                    status: CollectorStatus::Pass,
+                    banned_count: 0,
+                    license_violations: 0,
+                },
+                audit: AuditResult {
+                    status: CollectorStatus::Pass,
+                    vulnerability_count: 0,
+                    critical_count: 0,
+                },
+                hack: HackResult {
+                    status: CollectorStatus::Pass,
+                    feature_combinations_tested: 8,
+                },
+                mutants: MutantsResult {
+                    status: CollectorStatus::Pass,
+                    mutation_score: 0.9,
+                    caught: 90,
+                    missed: 10,
+                },
+                duplicates: DuplicatesResult {
+                    status: CollectorStatus::Pass,
+                    total_lines: 500,
+                    duplicate_lines: 0,
+                    files_with_duplicates: 0,
+                    duplicate_files: vec![],
+                    duplicate_blocks: vec![],
+                    duplicate_blocks_omitted: 0,
+                },
+                loc: LocResult {
+                    status: CollectorStatus::Pass,
+                    total_lines: 500,
+                    code_lines: 400,
+                    comment_lines: 50,
+                    blank_lines: 50,
+                    long_lines: 0,
+                    max_line_length_found: 80,
+                    max_line_length_allowed: 120,
+                    files: 5,
+                    files_with_long_lines: 0,
+                    long_line_files: vec![],
+                    long_line_details: vec![],
+                    long_line_details_omitted: 0,
+                },
+                size: SizeResult {
+                    status: CollectorStatus::Pass,
+                    files: 5,
+                    max_lines_per_file: 200,
+                    max_code_lines_per_file: 150,
+                    max_lines_per_function: 40,
+                    max_parameters_per_function: 3,
+                    violations: vec![],
+                },
+                complexity: crate::schema::ComplexityResult {
+                    status: CollectorStatus::Pass,
+                    functions: 5,
+                    max_cyclomatic_complexity: 3,
+                    max_nesting_depth: 2,
+                    complex_functions: 0,
+                    violations: vec![],
+                },
             },
         };
 
@@ -424,7 +567,13 @@ mod tests {
         let content = std::fs::read_to_string(&baseline_path).unwrap();
         let baseline: Baseline = serde_json::from_str(&content).unwrap();
 
-        assert!(baseline.created_at.contains('T'), "updated created_at should be ISO-8601");
-        assert!(baseline.created_at.ends_with('Z'), "updated created_at should end with Z");
+        assert!(
+            baseline.created_at.contains('T'),
+            "updated created_at should be ISO-8601"
+        );
+        assert!(
+            baseline.created_at.ends_with('Z'),
+            "updated created_at should end with Z"
+        );
     }
 }

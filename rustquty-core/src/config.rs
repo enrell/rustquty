@@ -60,6 +60,8 @@ pub struct ConfigGate {
     #[serde(default)]
     pub complexity: Option<ComplexityConfig>,
     #[serde(default)]
+    pub loc: Option<LocConfig>,
+    #[serde(default)]
     pub defaults: Option<ConfigGateDefaults>,
 }
 
@@ -134,6 +136,15 @@ pub struct ComplexityConfig {
     /// Maximum nesting depth per function.
     #[serde(default)]
     pub max_nesting_depth: Option<u32>,
+}
+
+/// Configuration for the LOC collector.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "kebab-case")]
+pub struct LocConfig {
+    /// Maximum line length in characters.
+    #[serde(default)]
+    pub max_line_length: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]

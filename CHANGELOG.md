@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3] - 2026-06-28
+
+### Changed
+
+- **Duplicates collector**: Replaced line-frequency counting with token-window duplicate block detection, avoiding false positives from repeated braces, attributes, and common punctuation.
+- **LOC collector**: Uses the configured max line length during collection so metrics, gate messages, and verbose output agree on the same threshold.
+- **Verbose output**: Adds capped file:line details for duplicate blocks and long-line violations.
+
+### Fixed
+
+- **LOC aggregation**: `maxLineLengthAllowed`, `filesWithLongLines`, `longLineFiles`, and long-line details are now preserved in `metricsSummary.json`.
+- **Gate messages**: LOC failures now report the actual collector threshold instead of a baseline max observed line length.
+- **File scanning**: Built-in Rust source collectors skip `target/`, `.git/`, and `quality/` directories.
+
 ## [0.4.0] - 2026-06-01
 
 ### Added
@@ -162,3 +176,4 @@ max-nesting-depth = 5             # Optional
 [0.3.0]: https://github.com/enrell/rustquty/releases/tag/v0.3.0
 [0.3.1]: https://github.com/enrell/rustquty/releases/tag/v0.3.1
 [0.4.0]: https://github.com/enrell/rustquty/releases/tag/v0.4.0
+[0.4.3]: https://github.com/enrell/rustquty/releases/tag/v0.4.3

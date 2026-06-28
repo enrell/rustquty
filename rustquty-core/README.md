@@ -16,8 +16,8 @@ This crate provides 12 quality collectors:
 | `audit` | Security vulnerabilities | `cargo audit` |
 | `hack` | Feature powerset testing | `cargo hack` |
 | `mutants` | Mutation testing | `cargo mutants` |
-| `duplicates` | Duplicate line detection | built-in |
-| `loc` | Lines of code + line length | built-in |
+| `duplicates` | Token-based duplicate block detection | built-in |
+| `loc` | Lines of code + configurable line length | built-in |
 | `size` | Per-file/per-function size (AST) | built-in |
 | `complexity` | Cyclomatic complexity + nesting (AST) | built-in |
 

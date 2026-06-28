@@ -1,18 +1,30 @@
 //! LOC collector — measures lines of code metrics.
 
-use super::{Collector, CollectorError, CollectorOutput};
+use super::{Collector, CollectorError, CollectorOutput, is_scannable_rust_file};
+use crate::config::LocConfig;
 use crate::context::Context;
+use crate::schema::LongLineDetail;
 use std::fs;
+use std::path::Path;
 use walkdir::WalkDir;
 
 pub struct LocCollector {
     max_line_length: usize,
 }
 
+const DEFAULT_MAX_LINE_LENGTH: usize = 120;
+const LONG_LINE_DETAIL_CAP: usize = 200;
+
 impl LocCollector {
     pub fn new() -> Self {
         Self {
-            max_line_length: 120,
+            max_line_length: DEFAULT_MAX_LINE_LENGTH,
+        }
+    }
+
+    pub fn with_config(config: LocConfig) -> Self {
+        Self {
+            max_line_length: config.max_line_length.unwrap_or(DEFAULT_MAX_LINE_LENGTH),
         }
     }
 }
@@ -38,6 +50,8 @@ impl Collector for LocCollector {
         let mut max_line_len_found: usize = 0;
         let mut files_with_long_lines: u32 = 0;
         let mut long_line_files: Vec<String> = Vec::new();
+        let mut long_line_details: Vec<LongLineDetail> = Vec::new();
+        let mut long_line_details_omitted: u32 = 0;
 
         // Walk all Rust files recursively
         for entry in WalkDir::new(&ctx.workspace_root)
@@ -45,10 +59,7 @@ impl Collector for LocCollector {
             .filter_map(|e| e.ok())
         {
             let path = entry.path();
-            if !path.is_file() {
-                continue;
-            }
-            if path.extension().is_none_or(|e| e != "rs") {
+            if !is_scannable_rust_file(path) {
                 continue;
             }
             let Ok(content) = fs::read_to_string(path) else {
@@ -60,14 +71,11 @@ impl Collector for LocCollector {
             total_lines += lines.len() as u32;
 
             // Track module/file lines
-            let file_name = path
-                .file_name()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_else(|| "unknown".to_string());
+            let file_name = relative_path(path, &ctx.workspace_root);
 
             let mut file_has_long_line = false;
             let mut in_block_comment = false;
-            for line in &lines {
+            for (line_idx, line) in lines.iter().enumerate() {
                 let trimmed = line.trim();
                 let line_len = line.len();
 
@@ -78,6 +86,16 @@ impl Collector for LocCollector {
                 if line_len > self.max_line_length {
                     long_lines += 1;
                     file_has_long_line = true;
+                    if long_line_details.len() < LONG_LINE_DETAIL_CAP {
+                        long_line_details.push(LongLineDetail {
+                            file: file_name.clone(),
+                            line: line_idx as u32 + 1,
+                            length: line_len,
+                            threshold: self.max_line_length,
+                        });
+                    } else {
+                        long_line_details_omitted += 1;
+                    }
                 }
 
                 if trimmed.is_empty() {
@@ -125,6 +143,8 @@ impl Collector for LocCollector {
             "files": files,
             "filesWithLongLines": files_with_long_lines,
             "longLineFiles": long_line_files,
+            "longLineDetails": long_line_details,
+            "longLineDetailsOmitted": long_line_details_omitted,
         });
 
         Ok(CollectorOutput {
@@ -134,6 +154,13 @@ impl Collector for LocCollector {
             stderr: String::new(),
         })
     }
+}
+
+fn relative_path(path: &Path, workspace_root: &Path) -> String {
+    path.strip_prefix(workspace_root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .to_string()
 }
 
 impl Default for LocCollector {
@@ -161,6 +188,15 @@ mod tests {
         collector.collect(&ctx).unwrap()
     }
 
+    fn run_on_content_with_threshold(content: &str, max_line_length: usize) -> CollectorOutput {
+        let dir = temp_file(content);
+        let ctx = Context::new(dir.path().to_path_buf());
+        let collector = LocCollector::with_config(LocConfig {
+            max_line_length: Some(max_line_length),
+        });
+        collector.collect(&ctx).unwrap()
+    }
+
     fn parse_details(output: &CollectorOutput) -> serde_json::Value {
         serde_json::from_str(&output.stdout).unwrap()
     }
@@ -179,9 +215,6 @@ mod tests {
 
     #[test]
     fn test_block_comment_lines_counted_as_code() {
-        // BUG: lines inside a /* ... */ block comment are misclassified as code.
-        // Only the opening /* and closing */ are detected as comments;
-        // lines between them should also be comments but are counted as code.
         let content = "/* block start\n   inside block\n   still inside\n*/\nfn main() {}";
         let output = run_on_content(content);
         let details = parse_details(&output);
@@ -189,8 +222,6 @@ mod tests {
         let comment_lines = details["commentLines"].as_u64().unwrap();
         let code_lines = details["codeLines"].as_u64().unwrap();
 
-        // Expected: 4 comment lines (/* start, 2 inside, */ end), 1 code line (fn main)
-        // Actual (buggy): 2 comment lines (/* and */), 3 code lines (2 inside + fn main)
         assert_eq!(
             comment_lines, 4,
             "Block comment interior lines should be counted as comments"
@@ -224,7 +255,10 @@ mod tests {
         let comment_lines = details["commentLines"].as_u64().unwrap();
         let code_lines = details["codeLines"].as_u64().unwrap();
 
-        assert_eq!(comment_lines, 4, "Block comment interior should be counted as comments");
+        assert_eq!(
+            comment_lines, 4,
+            "Block comment interior should be counted as comments"
+        );
         assert_eq!(code_lines, 1);
     }
 
@@ -293,5 +327,22 @@ mod tests {
         let details = parse_details(&output);
         assert_eq!(details["commentLines"].as_u64().unwrap(), 2);
         assert_eq!(details["codeLines"].as_u64().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_loc_configured_max_line_length_and_details() {
+        let content = "fn main() {}\nlet very_long_value = \"abcdef\";\n";
+        let output = run_on_content_with_threshold(content, 20);
+        let details = parse_details(&output);
+
+        assert_eq!(details["longLines"].as_u64().unwrap(), 1);
+        assert_eq!(details["maxLineLengthAllowed"].as_u64().unwrap(), 20);
+        assert_eq!(details["filesWithLongLines"].as_u64().unwrap(), 1);
+        assert_eq!(details["longLineFiles"].as_array().unwrap().len(), 1);
+        let first = &details["longLineDetails"].as_array().unwrap()[0];
+        assert_eq!(first["file"].as_str().unwrap(), "test.rs");
+        assert_eq!(first["line"].as_u64().unwrap(), 2);
+        assert!(first["length"].as_u64().unwrap() > 20);
+        assert_eq!(first["threshold"].as_u64().unwrap(), 20);
     }
 }

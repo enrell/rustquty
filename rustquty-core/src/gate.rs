@@ -84,97 +84,155 @@ impl Gate {
         }
 
         // Fmt
-        check_status!(summary.collectors.fmt.status, "fmt", thresholds.fmt.must_pass);
+        check_status!(
+            summary.collectors.fmt.status,
+            "fmt",
+            thresholds.fmt.must_pass
+        );
 
         // Clippy — use absolute if set, otherwise baseline
-        let clippy_max = cfg.max_clippy_warnings.unwrap_or(thresholds.clippy.max_warnings);
+        let clippy_max = cfg
+            .max_clippy_warnings
+            .unwrap_or(thresholds.clippy.max_warnings);
         check_pass!(
             summary.collectors.clippy.warning_count <= clippy_max,
-            "clippy", "warning_count",
+            "clippy",
+            "warning_count",
             serde_json::json!(clippy_max),
             serde_json::json!(summary.collectors.clippy.warning_count),
-            format!("clippy warnings ({}) exceed max allowed ({})", summary.collectors.clippy.warning_count, clippy_max)
+            format!(
+                "clippy warnings ({}) exceed max allowed ({})",
+                summary.collectors.clippy.warning_count, clippy_max
+            )
         );
 
         // Tests
         check_pass!(
             summary.collectors.tests.failed <= thresholds.tests.max_failures,
-            "tests", "failed",
+            "tests",
+            "failed",
             serde_json::json!(thresholds.tests.max_failures),
             serde_json::json!(summary.collectors.tests.failed),
-            format!("test failures ({}) exceed max allowed ({})", summary.collectors.tests.failed, thresholds.tests.max_failures)
+            format!(
+                "test failures ({}) exceed max allowed ({})",
+                summary.collectors.tests.failed, thresholds.tests.max_failures
+            )
         );
 
         // Coverage — use absolute if set, otherwise baseline
-        let coverage_min = cfg.min_coverage_percent.unwrap_or(thresholds.coverage.min_line_percent);
+        let coverage_min = cfg
+            .min_coverage_percent
+            .unwrap_or(thresholds.coverage.min_line_percent);
         check_pass!(
             summary.collectors.coverage.line_percent >= coverage_min,
-            "coverage", "line_percent",
+            "coverage",
+            "line_percent",
             serde_json::json!(coverage_min),
             serde_json::json!(summary.collectors.coverage.line_percent),
-            format!("coverage ({:.1}%) below minimum ({:.1}%)", summary.collectors.coverage.line_percent, coverage_min)
+            format!(
+                "coverage ({:.1}%) below minimum ({:.1}%)",
+                summary.collectors.coverage.line_percent, coverage_min
+            )
         );
 
         // Deny
         check_pass!(
             summary.collectors.deny.banned_count <= thresholds.deny.max_banned
-                && summary.collectors.deny.license_violations <= thresholds.deny.max_license_violations,
-            "deny", "banned_count + license_violations",
+                && summary.collectors.deny.license_violations
+                    <= thresholds.deny.max_license_violations,
+            "deny",
+            "banned_count + license_violations",
             serde_json::json!({"max_banned": thresholds.deny.max_banned, "max_license_violations": thresholds.deny.max_license_violations}),
             serde_json::json!({"banned_count": summary.collectors.deny.banned_count, "license_violations": summary.collectors.deny.license_violations}),
-            format!("deny check failed: {} banned, {} license violations", summary.collectors.deny.banned_count, summary.collectors.deny.license_violations)
+            format!(
+                "deny check failed: {} banned, {} license violations",
+                summary.collectors.deny.banned_count, summary.collectors.deny.license_violations
+            )
         );
 
         // Audit
         check_pass!(
             summary.collectors.audit.vulnerability_count <= thresholds.audit.max_vulnerabilities
                 && summary.collectors.audit.critical_count <= thresholds.audit.max_critical,
-            "audit", "vulnerability_count + critical_count",
+            "audit",
+            "vulnerability_count + critical_count",
             serde_json::json!({"max_vulnerabilities": thresholds.audit.max_vulnerabilities, "max_critical": thresholds.audit.max_critical}),
             serde_json::json!({"vulnerability_count": summary.collectors.audit.vulnerability_count, "critical_count": summary.collectors.audit.critical_count}),
-            format!("audit found {} vulnerabilities ({} critical), exceeds baseline", summary.collectors.audit.vulnerability_count, summary.collectors.audit.critical_count)
+            format!(
+                "audit found {} vulnerabilities ({} critical), exceeds baseline",
+                summary.collectors.audit.vulnerability_count,
+                summary.collectors.audit.critical_count
+            )
         );
 
         // Hack
-        check_status!(summary.collectors.hack.status, "hack", thresholds.hack.must_pass);
+        check_status!(
+            summary.collectors.hack.status,
+            "hack",
+            thresholds.hack.must_pass
+        );
 
         // Mutants
         check_pass!(
             summary.collectors.mutants.mutation_score >= thresholds.mutants.min_score,
-            "mutants", "mutation_score",
+            "mutants",
+            "mutation_score",
             serde_json::json!(thresholds.mutants.min_score),
             serde_json::json!(summary.collectors.mutants.mutation_score),
-            format!("mutation score ({:.2}) below minimum ({:.2})", summary.collectors.mutants.mutation_score, thresholds.mutants.min_score)
+            format!(
+                "mutation score ({:.2}) below minimum ({:.2})",
+                summary.collectors.mutants.mutation_score, thresholds.mutants.min_score
+            )
         );
 
         // Duplicates — use absolute if set, otherwise baseline
-        let dup_max = cfg.max_duplicate_lines.unwrap_or(thresholds.duplicates.max_duplicate_lines);
+        let dup_max = cfg
+            .max_duplicate_lines
+            .unwrap_or(thresholds.duplicates.max_duplicate_lines);
         check_pass!(
             summary.collectors.duplicates.duplicate_lines <= dup_max,
-            "duplicates", "duplicate_lines",
+            "duplicates",
+            "duplicate_lines",
             serde_json::json!(dup_max),
             serde_json::json!(summary.collectors.duplicates.duplicate_lines),
-            format!("duplicate lines ({}) exceed maximum ({})", summary.collectors.duplicates.duplicate_lines, dup_max)
+            format!(
+                "duplicate lines ({}) exceed maximum ({})",
+                summary.collectors.duplicates.duplicate_lines, dup_max
+            )
         );
 
-        // LOC — use absolute max_line_length if set
-        let line_len_max = cfg.max_line_length.unwrap_or(thresholds.loc.max_line_length);
+        // LOC — long_lines is measured by the collector, so report that actual threshold.
+        let line_len_max = if summary.collectors.loc.max_line_length_allowed > 0 {
+            summary.collectors.loc.max_line_length_allowed
+        } else {
+            cfg.max_line_length
+                .unwrap_or(thresholds.loc.max_line_length)
+                .max(120)
+        };
         check_pass!(
             summary.collectors.loc.long_lines == 0,
-            "loc", "long_lines",
+            "loc",
+            "long_lines",
             serde_json::json!(0),
             serde_json::json!(summary.collectors.loc.long_lines),
-            format!("{} lines exceed max length ({})", summary.collectors.loc.long_lines, line_len_max)
+            format!(
+                "{} lines exceed max length ({})",
+                summary.collectors.loc.long_lines, line_len_max
+            )
         );
 
         // Size — merge absolute config with baseline
-        let size_max_lines_per_file = cfg.max_lines_per_file
+        let size_max_lines_per_file = cfg
+            .max_lines_per_file
             .or(thresholds.size.max_lines_per_file);
-        let size_max_code_lines_per_file = cfg.max_code_lines_per_file
+        let size_max_code_lines_per_file = cfg
+            .max_code_lines_per_file
             .or(thresholds.size.max_code_lines_per_file);
-        let size_max_lines_per_function = cfg.max_lines_per_function
+        let size_max_lines_per_function = cfg
+            .max_lines_per_function
             .or(thresholds.size.max_lines_per_function);
-        let size_max_params = cfg.max_parameters_per_function
+        let size_max_params = cfg
+            .max_parameters_per_function
             .or(thresholds.size.max_parameters_per_function);
 
         let size_has_thresholds = size_max_lines_per_file.is_some()
@@ -183,26 +241,36 @@ impl Gate {
             || size_max_params.is_some();
         check_pass!(
             !size_has_thresholds || summary.collectors.size.violations.is_empty(),
-            "size", "violations",
+            "size",
+            "violations",
             serde_json::json!(0),
             serde_json::json!(summary.collectors.size.violations.len()),
-            format!("{} size violation(s) detected", summary.collectors.size.violations.len())
+            format!(
+                "{} size violation(s) detected",
+                summary.collectors.size.violations.len()
+            )
         );
 
         // Complexity — merge absolute config with baseline
-        let complexity_max_cc = cfg.max_cyclomatic_per_function
+        let complexity_max_cc = cfg
+            .max_cyclomatic_per_function
             .or(thresholds.complexity.max_cyclomatic_per_function);
-        let complexity_max_depth = cfg.max_nesting_depth
+        let complexity_max_depth = cfg
+            .max_nesting_depth
             .or(thresholds.complexity.max_nesting_depth);
 
-        let complexity_has_thresholds = complexity_max_cc.is_some()
-            || complexity_max_depth.is_some();
+        let complexity_has_thresholds =
+            complexity_max_cc.is_some() || complexity_max_depth.is_some();
         check_pass!(
             !complexity_has_thresholds || summary.collectors.complexity.violations.is_empty(),
-            "complexity", "violations",
+            "complexity",
+            "violations",
             serde_json::json!(0),
             serde_json::json!(summary.collectors.complexity.violations.len()),
-            format!("{} complexity violation(s) detected", summary.collectors.complexity.violations.len())
+            format!(
+                "{} complexity violation(s) detected",
+                summary.collectors.complexity.violations.len()
+            )
         );
 
         let collectors_run = collectors_passed + collectors_failed;
@@ -317,6 +385,8 @@ mod tests {
                     duplicate_lines: 0,
                     files_with_duplicates: 0,
                     duplicate_files: vec![],
+                    duplicate_blocks: vec![],
+                    duplicate_blocks_omitted: 0,
                 },
                 loc: LocResult {
                     status: CollectorStatus::Pass,
@@ -330,6 +400,8 @@ mod tests {
                     files: 10,
                     files_with_long_lines: 0,
                     long_line_files: vec![],
+                    long_line_details: vec![],
+                    long_line_details_omitted: 0,
                 },
                 size: SizeResult {
                     status: CollectorStatus::Pass,
@@ -508,6 +580,39 @@ mod tests {
         let report = Gate::run(&summary, &baseline);
         assert!(matches!(report.gate_result, GateResult::Fail));
         assert!(report.violations.iter().any(|v| v.collector == "loc"));
+    }
+
+    #[test]
+    fn test_loc_gate_message_uses_collector_threshold() {
+        let mut summary = make_summary(
+            CollectorStatus::Pass,
+            0,
+            0,
+            90.0,
+            0,
+            0,
+            0,
+            0,
+            CollectorStatus::Pass,
+            0.9,
+        );
+        summary.collectors.loc.long_lines = 5;
+        summary.collectors.loc.max_line_length_found = 284;
+        summary.collectors.loc.max_line_length_allowed = 120;
+        summary.collectors.loc.status = CollectorStatus::Fail;
+
+        let baseline = make_baseline(
+            true, 0, 0, 80.0, 0, 0, 0, 0, true, 0.8, 100, 284, None, None, None, None,
+        );
+        let report = Gate::run(&summary, &baseline);
+        let violation = report
+            .violations
+            .iter()
+            .find(|v| v.collector == "loc")
+            .unwrap();
+
+        assert!(violation.message.contains("(120)"));
+        assert!(!violation.message.contains("(284)"));
     }
 
     #[test]

@@ -6,9 +6,9 @@ Local-first quality scanner for Rust projects.
 
 - **12 Quality Collectors**: fmt, clippy, tests, coverage, deny, audit, hack, mutants, duplicates, loc, size, complexity
 - **Absolute Thresholds (SonarQube standards)**: Industry-standard defaults for complexity, size, coverage, and more via `[gate.defaults]`
-- **Verbose Violation Output**: `--verbose` flag shows `file:line` details for each violation
-- **Line Length Enforcement**: Detects lines exceeding max line length (default 120 chars)
-- **Code Duplication Detection**: Finds duplicate lines across Rust source files
+- **Verbose Violation Output**: `--verbose` flag shows `file:line` details for size, complexity, duplicate block, and long-line violations
+- **Line Length Enforcement**: Detects lines exceeding the configured max line length (default 120 chars) with capped file:line details
+- **Code Duplication Detection**: Finds repeated Rust token blocks instead of repeated punctuation or single-line tokens
 - **Per-file & Per-function Size Metrics**: Lines, code lines, function parameter counts via AST analysis
 - **Profile-based Scanning**: fast (fmt+clippy), full (all except mutants), deep (all)
 - **Baseline Comparison**: Compare current metrics against established baselines
@@ -181,8 +181,8 @@ Or use the composite action from this repository:
 | audit | `cargo audit` | Security vulnerabilities |
 | hack | `cargo hack` | Feature powerset |
 | mutants | `cargo mutants` | Mutation testing |
-| duplicates | (built-in) | Detects duplicate lines across files |
-| loc | (built-in) | Lines of code metrics + line length enforcement |
+| duplicates | (built-in) | Token-based duplicate block detection |
+| loc | (built-in) | Lines of code metrics + configurable line length enforcement |
 | size | (built-in) | Per-file and per-function size metrics via AST |
 | complexity | (built-in) | Cyclomatic complexity and nesting depth via AST |
 
